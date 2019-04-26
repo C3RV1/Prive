@@ -38,15 +38,15 @@ class Timeout(threading.Thread):
 
 class ClientHandle(threading.Thread):
 
-    def __init__(self, clientSocket, clientAddress, databaseManager, serverMaster):
-        #type: (ClientHandle, socket.socket, tuple, databaseManager.DatabaseManager, server.Server) -> None
+    def __init__(self, clientSocket, clientAddress, databaseManager, serverMaster, timeout):
+        #type: (ClientHandle, socket.socket, tuple, databaseManager.DatabaseManager, server.Server, int) -> None
         threading.Thread.__init__(self)
         self.clientSocket = clientSocket
         self.clientAddress = clientAddress
         self.databaseManager = databaseManager
         self.serverMaster = serverMaster
         self.timeoutList = [0, False]  # Because all instances share the same object
-        self.timeOutController = Timeout(self.clientSocket, self.clientAddress, self.timeoutList, 10, databaseManager)
+        self.timeOutController = Timeout(self.clientSocket, self.clientAddress, self.timeoutList, timeout, databaseManager)
         self.timeOutController.start()
 
     def run(self):
@@ -251,49 +251,49 @@ class ClientHandle(threading.Thread):
             self.clientSocket.send(msg)
             return False
 
-        createChatReToSearchFor = "^createChat;creatorName: (.+);chatName: (.+);"
-        createChatReToSearchFor += "keys: (.+);firstMsg: (.+);sign: (.+);msgValidationSha: (.+)$"
+        #createChatReToSearchFor = "^createChat;creatorName: (.+);chatName: (.+);"
+        #createChatReToSearchFor += "keys: (.+);firstMsg: (.+);sign: (.+);msgValidationSha: (.+)$"
 
-        createChat = re.search(createChatReToSearchFor, decryptedMessage)
+        #createChat = re.search(createChatReToSearchFor, decryptedMessage)
 
-        if createChat:
-            l_creatorName = createChat.group(1)
-            l_chatName = createChat.group(2)
-            l_keys = createChat.group(3)
-            l_firstMsg = createChat.group(4)
-            l_signature = createChat.group(5)
-            l_msgValidationSha = createChat.group(6)
-            l_databaseQueryErrorCode = self.databaseManager.createChat(l_creatorName, l_chatName, l_keys, l_firstMsg,
-                                                                       l_signature, l_msgValidationSha)
+        #if createChat:
+        #    l_creatorName = createChat.group(1)
+        #    l_chatName = createChat.group(2)
+        #    l_keys = createChat.group(3)
+        #    l_firstMsg = createChat.group(4)
+        #    l_signature = createChat.group(5)
+        #    l_msgValidationSha = createChat.group(6)
+        #    l_databaseQueryErrorCode = self.databaseManager.createChat(l_creatorName, l_chatName, l_keys, l_firstMsg,
+        #                                                               l_signature, l_msgValidationSha)
 
-            msg = ""
+        #    msg = ""
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "Chat Created Successfully;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "Creator Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "User Without chats;errorCode: wtfHappenedToTheChats"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid Chat Name Characters;errorCode: invalidChatName"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Chat Already Exist;errorCode: chatAlreadyExists"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "User Without PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Invalid Keys Characters;errorCode: invalidKeys"
-            elif l_databaseQueryErrorCode == 7:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == 8:
-                msg = "Invalid Number Of Keys;errorCode: invalidKeysNum"
-            elif l_databaseQueryErrorCode == 9:
-                msg = "Invalid First Message Characters;errorCode: invalidFirstMsg"
-            elif l_databaseQueryErrorCode == 10:
-                msg = "Invalid Message Validation Sha Characters;errorCode: invalidMsgVS"
+        #    if l_databaseQueryErrorCode == 0:
+        #        msg = "Chat Created Successfully;errorCode: successful"
+        #    elif l_databaseQueryErrorCode == 1:
+        #        msg = "Creator Doesn't Exist;errorCode: usrNotFound"
+        #    elif l_databaseQueryErrorCode == 2:
+        #        msg = "User Without chats;errorCode: wtfHappenedToTheChats"
+        #    elif l_databaseQueryErrorCode == 3:
+        #        msg = "Invalid Chat Name Characters;errorCode: invalidChatName"
+        #    elif l_databaseQueryErrorCode == 4:
+        #        msg = "Chat Already Exist;errorCode: chatAlreadyExists"
+        #    elif l_databaseQueryErrorCode == 5:
+        #        msg = "User Without PK;errorCode: wtfHappenedToThePK"
+        #    elif l_databaseQueryErrorCode == 6:
+        #        msg = "Invalid Keys Characters;errorCode: invalidKeys"
+        #    elif l_databaseQueryErrorCode == 7:
+        #        msg = "Faulty Signature;errorCode: invalidSign"
+        #    elif l_databaseQueryErrorCode == 8:
+        #        msg = "Invalid Number Of Keys;errorCode: invalidKeysNum"
+        #    elif l_databaseQueryErrorCode == 9:
+        #        msg = "Invalid First Message Characters;errorCode: invalidFirstMsg"
+        #    elif l_databaseQueryErrorCode == 10:
+        #        msg = "Invalid Message Validation Sha Characters;errorCode: invalidMsgVS"
 
-            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-            self.clientSocket.send(msg)
-            return False
+        #    msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
+        #    self.clientSocket.send(msg)
+        #    return False
 
         msg = "Invalid Request;errorCode: invalidReq"
         msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"

@@ -31,8 +31,9 @@ class ConsoleForExit(threading.Thread):
 
 class Server:
 
-    def __init__(self, host, port, name, maxCurrentUsers):
-        # type: (str, int, str, int) -> None
+    def __init__(self, host, port, name, maxCurrentUsers, databasePath, logFile, unacceptedNameCharacters,
+                 clientTimeout):
+        # type: (str, int, str, int, str, str, str, int) -> None
         self.name = name
         self.host = host
         self.port = port
@@ -41,8 +42,9 @@ class Server:
         self.listenSocket.bind((host, port))
         self.listenSocket.listen(maxCurrentUsers)
         self.clientThreads = []
+        self.clientTimeout = clientTimeout
         try:
-            self.database = databaseManager.DatabaseManager("..\\PriveDatabase")
+            self.database = databaseManager.DatabaseManager(databasePath, logFile, unacceptedNameCharacters)
         except Exception as e:
             print e.message
             return
@@ -52,13 +54,14 @@ class Server:
 
     def log(self, msg, printOnScreen=True, debug=False):
         # type: (str, bool, bool) -> None
-        self.database.logger.log("[Main Server Class] " + msg, printToScreen=printOnScreen, debug=debug)
+        self.database.logger.log("[Server" + self.name + "] " + msg, printToScreen=printOnScreen, debug=debug)
 
     def run(self):
         while self.running.returnRunning():
             clientSocket, clientAddress = self.listenSocket.accept()
             self.log("Client " + str(clientAddress[0]) + " " + str(clientAddress[1]) + " Connected")
-            self.clientThreads.append(clientHandle.ClientHandle(clientSocket, clientAddress, self.database, self))
+            self.clientThreads.append(clientHandle.ClientHandle(clientSocket, clientAddress, self.database, self,
+                                                                self.clientTimeout))
             self.clientThreads[-1].start()
 
         for thread in self.clientThreads:

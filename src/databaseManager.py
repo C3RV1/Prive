@@ -12,8 +12,9 @@ import shutil
 
 class DatabaseManager:
 
-    def __init__(self, databaseDirectory):
+    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters):
         self.databaseDirectory = databaseDirectory
+        self.unacceptedNameCharacters = unacceptedNameCharacters
 
         if not os.path.isdir(self.databaseDirectory):
             os.mkdir(self.databaseDirectory)
@@ -21,8 +22,8 @@ class DatabaseManager:
             os.mkdir(self.databaseDirectory + "\\Profiles")
         if not os.path.isdir(self.databaseDirectory + "\\SessionKeys"):
             os.mkdir(self.databaseDirectory + "\\SessionKeys")
-        if not os.path.isdir(self.databaseDirectory + "\\Chats"):
-            os.mkdir(self.databaseDirectory + "\\Chats")
+        #if not os.path.isdir(self.databaseDirectory + "\\Chats"):
+        #    os.mkdir(self.databaseDirectory + "\\Chats")
 
         privateKeyPath = self.databaseDirectory + "\\privateKey.skm"  # Private Key Master
 
@@ -34,7 +35,7 @@ class DatabaseManager:
         self.privateKey = RSA.importKey(privateKeyStr)
 
         self.databaseLock = threading.Lock()
-        self.logger = logger.Logger("..\\prive.log")
+        self.logger = logger.Logger(logFile)
 
     def newSessionKey(self, host, port, sessionKey):
         #type: (str, int, str) -> bool
@@ -89,7 +90,7 @@ class DatabaseManager:
 
         self.databaseLock.acquire()
 
-        if re.search(".*[\r\n/\\\\:\"?*<>|.].*", name):
+        if re.search(".*[" + self.unacceptedNameCharacters + "].*", name):
             self.databaseLock.release()
             return 2
 
@@ -133,8 +134,8 @@ class DatabaseManager:
 
         os.mkdir(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs")
 
-        chatsFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\chats.chts", "w")
-        chatsFile.close()
+        #chatsFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\chats.chts", "w")
+        #chatsFile.close()
 
         self.databaseLock.release()
         return 0
@@ -311,6 +312,7 @@ class DatabaseManager:
         self.databaseLock.release()
         return 3
 
+    # Not Used
     def createChat(self, creatorName, chatName, keys, firstMessage, signature, messageValidationSha):
         # type: (str, str, str, str, str, str) -> int
         # Returns errorCode
