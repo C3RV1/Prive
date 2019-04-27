@@ -48,13 +48,35 @@ def menu(priveConnection):
             print "Logged in as {0}".format(priveConnection.loggedInUser)
         print "1. Register"
         print "2. Login"
-        print "3. Exit"
+        if priveConnection.loggedIn == True:
+            print "3. Delete User"
+            print "4. Logout"
+            print "5. Update Keys"
+            print "6. Exit"
+        else:
+            print "3. Exit"
         option = input("Option: ")
         if option == 1:
             register(priveConnection)
         elif option == 2:
             login(priveConnection)
         elif option == 3:
+            if priveConnection.loggedIn is True:
+                are_you_sure = raw_input("Are you sure? [y/N]")
+                if are_you_sure == "y" or are_you_sure == "Y":
+                    opResult = priveConnection.deleteUser()
+                    if opResult == "successful":
+                        print "User deleted successfully"
+                    else:
+                        print "Error deleting user"
+                        print "Error Code: {0}".format(opResult)
+            else:
+                break
+        elif option == 4 and priveConnection.loggedIn is True:
+            priveConnection.logout()
+        elif option == 5 and priveConnection.loggedIn is True:
+            priveConnection.updateKeys()
+        elif option == 6 and priveConnection.loggedIn is True:
             break
         else:
             print "Option not accepted"

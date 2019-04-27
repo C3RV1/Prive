@@ -12,7 +12,7 @@ import threading
 class AutoKeepAlive(threading.Thread):
 
     def __init__(self, serverSocket, keepAliveMsg):
-        # type: (PriveAPIInstance, str)
+        # type: (PriveAPIInstance, str) -> None
         threading.Thread.__init__(self)
         self.serverSock = serverSocket
         self.keepAliveMsg = keepAliveMsg
@@ -293,6 +293,14 @@ class PriveAPIInstance:
             self.loggedInUser = ""
 
         return msgErrorCode
+
+    def updateKeys(self):
+        pass
+
+    def logout(self):
+        self.loggedIn = False
+        self.loggedInSK = None
+        self.loggedInUser = ""
 
     def keepAlive(self):
             self.sock.send(self.keepAliveMsg)
