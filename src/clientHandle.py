@@ -245,7 +245,11 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == 2:
                 msg = "User Without PK;errorCode: wtfHappenedToThePK"
             elif l_databaseQueryErrorCode == 3:
+                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
+            elif l_databaseQueryErrorCode == 4:
                 msg = "Faulty Signature;errorCode: invalidSign"
+            elif l_databaseQueryErrorCode == 5:
+                msg = "Error Importing User PK;errorCode: faultyPK"
 
             msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
             self.clientSocket.send(msg)

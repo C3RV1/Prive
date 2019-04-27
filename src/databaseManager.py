@@ -273,7 +273,9 @@ class DatabaseManager:
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Strange Error Where The User Doesn't Have PK,
-        #              3 - Faulty Signature)
+        #              3 - Signature not B64,
+        #              4 - Faulty Signature,
+        #              5 - Error Importing User PK)
 
         self.databaseLock.acquire()
 
@@ -285,11 +287,19 @@ class DatabaseManager:
             self.databaseLock.release()
             return 2
 
+        if not re.search("^[a-zA-Z0-9+/;=\n]+$", signatureB64):
+            self.databaseLock.release()
+            return 3
+
         pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
 
-        pkKey = RSA.importKey(pk)
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            self.databaseLock.release()
+            return 5
 
         signature = random.bytes_to_long(base64.b64decode(signatureB64))
 
@@ -310,7 +320,7 @@ class DatabaseManager:
             return 0
 
         self.databaseLock.release()
-        return 3
+        return 4
 
     # Not Used
     def createChat(self, creatorName, chatName, keys, firstMessage, signature, messageValidationSha):
@@ -410,3 +420,66 @@ class DatabaseManager:
         self.databaseLock.release()
 
         return 0
+
+    def keyUpdate(self, name, signatureB64, newPK, newSKAesB64):
+        # type: (str, str, str, str) -> int
+        # Returns errorCode
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Invalid Signature Characters,
+        #              3 - Invalid newSKAesB64 Character,
+        #              4 - Invalid newPK,
+        #              5 - Strange Error Where User Doesn't have PK,
+        #              6 - Error Importing User PK,
+        #              7 - Faulty Signature)
+
+        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+            self.databaseLock.release()
+            return 1
+
+        if not re.search("^[a-zA-Z0-9+/;=\n]+$", signatureB64):
+            self.databaseLock.release()
+            return 2
+
+        if not re.search("^[a-zA-Z0-9+/;=\n]+$", newSKAesB64):
+            self.databaseLock.release()
+            return 3
+
+        if not re.search("^-----BEGIN PUBLIC KEY-----\n[a-zA-Z0-9+/=\n]+-----END PUBLIC KEY-----$", newPK):
+            self.databaseLock.release()
+            return 4
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk"):
+            self.databaseLock.release()
+            return 5
+
+        pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            self.databaseLock.release()
+            return 6
+
+        signatureToVerify = "updateKeys;name: " + name + ";newPK: " + newPK + ";newSKAesB64: " + newSKAesB64
+        signatureToVerify = SHA256.new(signatureToVerify).digest()
+        signature = random.bytes_to_long(base64.b64decode(signatureB64))
+
+        validSignature = pkKey.verify(signatureToVerify, (signature, None))
+
+        if validSignature is True:
+            pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "w")
+            pkFile.write(newPK)
+            pkFile.close()
+
+            skFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64")
+            skFile.write(newSKAesB64)
+            skFile.close()
+
+            self.databaseLock.release()
+            return 0
+
+        self.databaseLock.release()
+        return 7
