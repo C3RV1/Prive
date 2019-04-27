@@ -233,7 +233,6 @@ class ClientHandle(threading.Thread):
         if delUser:
             l_name = delUser.group(1)
             l_signature = delUser.group(2)
-            print "1"
             l_databaseQueryErrorCode = self.databaseManager.delUser(l_name, l_signature)
 
             msg = ""
@@ -255,6 +254,73 @@ class ClientHandle(threading.Thread):
             self.clientSocket.send(msg)
             return False
 
+        updateKeys = re.search("^updateKeys;name: (.+);signatureB64: (.+);newPK: (.+);newSKAesB64: (.+)$")
+
+        if updateKeys:
+            l_name = updateKeys.group(1)
+            l_signatureB64 = updateKeys.group(2)
+            l_newPK = updateKeys.group(3)
+            l_newSKAesB64 = updateKeys.group(4)
+
+            l_databaseQueryErrorCode = self.databaseManager.updateKeys(l_name, l_signatureB64, l_newPK, l_newSKAesB64)
+
+            msg = ""
+
+            if l_databaseQueryErrorCode == 0:
+                msg = "Keys Updated!;errorCode: successful"
+            elif l_databaseQueryErrorCode == 1:
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
+            elif l_databaseQueryErrorCode == 2:
+                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
+            elif l_databaseQueryErrorCode == 3:
+                msg = "Invalid newSKAesB64 Characters;errorCode: invalidNewSKAesB64"
+            elif l_databaseQueryErrorCode == 4:
+                msg = "Invalid newPK Format or Characters;errorCode: invalidPK"
+            elif l_databaseQueryErrorCode == 5:
+                msg = "Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK"
+            elif l_databaseQueryErrorCode == 6:
+                msg = "Error Importing User PK;errorCode: faultyPK"
+            elif l_databaseQueryErrorCode == 7:
+                msg = "Faulty Signature;errorCode: invalidSign"
+
+            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
+            self.clientSocket.send(msg)
+            return False
+
+        msg = "Invalid Request;errorCode: invalidReq"
+        msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
+        self.clientSocket.send(msg)
+        return False
+
+    @staticmethod
+    def encryptWithPadding(key, plaintext):
+        # type: (str, str) -> tuple
+        length = (16 - (len(plaintext) % 16)) + 16 * random.randint(0,14)
+        plaintextPadded = plaintext + ClientHandle.getRandString(length-1) + chr(length)
+        if len(key) != 16 and len(key) != 32 and len(key) != 24:
+            return False, ""
+        ciphertext = base64.b64encode(AES.new(key).encrypt(plaintextPadded))
+        return True, ciphertext
+
+    @staticmethod
+    def decryptWithPadding(key, ciphertext):
+        # type: (str, str) -> tuple
+        if len(key) != 16 and len(key) != 32 and len(key) != 24:
+            return False, ""
+        ciphertextNotB64 = base64.b64decode(ciphertext)
+        plaintextPadded = AES.new(key).decrypt(ciphertextNotB64)
+        plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
+        return True, plaintext
+
+    @staticmethod
+    def getRandString(len):
+        # type: (int) -> str
+        returnString = ""
+        for x in range(0,len):
+            returnString += chr(random.getrandbits(8))
+        return returnString
+
+# Code NOT USED
         #createChatReToSearchFor = "^createChat;creatorName: (.+);chatName: (.+);"
         #createChatReToSearchFor += "keys: (.+);firstMsg: (.+);sign: (.+);msgValidationSha: (.+)$"
 
@@ -298,36 +364,3 @@ class ClientHandle(threading.Thread):
         #    msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
         #    self.clientSocket.send(msg)
         #    return False
-
-        msg = "Invalid Request;errorCode: invalidReq"
-        msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-        self.clientSocket.send(msg)
-        return False
-
-    @staticmethod
-    def encryptWithPadding(key, plaintext):
-        # type: (str, str) -> tuple
-        length = (16 - (len(plaintext) % 16)) + 16 * random.randint(0,14)
-        plaintextPadded = plaintext + ClientHandle.getRandString(length-1) + chr(length)
-        if len(key) != 16 and len(key) != 32 and len(key) != 24:
-            return False, ""
-        ciphertext = base64.b64encode(AES.new(key).encrypt(plaintextPadded))
-        return True, ciphertext
-
-    @staticmethod
-    def decryptWithPadding(key, ciphertext):
-        # type: (str, str) -> tuple
-        if len(key) != 16 and len(key) != 32 and len(key) != 24:
-            return False, ""
-        ciphertextNotB64 = base64.b64decode(ciphertext)
-        plaintextPadded = AES.new(key).decrypt(ciphertextNotB64)
-        plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
-        return True, plaintext
-
-    @staticmethod
-    def getRandString(len):
-        # type: (int) -> str
-        returnString = ""
-        for x in range(0,len):
-            returnString += chr(random.getrandbits(8))
-        return returnString
