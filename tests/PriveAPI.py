@@ -8,6 +8,7 @@ import re
 import time
 import threading
 
+# Prive Error Codes
 
 class AutoKeepAlive(threading.Thread):
 
@@ -35,6 +36,7 @@ class PriveAPIInstance:
         self.sessionKeySet = False
         self.loggedInSK = None  # Private Key
         self.loggedInUser = ""  # Active User
+        self.loggedInPassword = ""  # Active User Password
         self.loggedIn = False
 
         serverPublicKeyF = open(serverPublicKeyFile, "r")
@@ -258,6 +260,7 @@ class PriveAPIInstance:
             raise Exception("Error Importing RSA Key (Error 3)")
         self.loggedInUser = userName
         self.loggedIn = True
+        self.loggedInPassword = password
         return "successful", 0
 
     def deleteUser(self):
@@ -295,7 +298,39 @@ class PriveAPIInstance:
         return msgErrorCode
 
     def updateKeys(self):
-        pass
+        if not self.loggedIn:
+            return "Not logged in"
+
+        newRSAKey = RSA.generate()
+        newPKExported = newRSAKey.publickey().exportKey()
+        newSKExported = newRSAKey.exportKey()
+
+        # Encrypt & B64
+        privateKeyEncrypted = self.encryptWithPadding(self.loggedInPassword, newSKExported)[1]
+
+        textToSign = "updateKeys;name: " + self.loggedInUser + ";newPK: " + newPKExported + ";newSKAesB64: "
+        textToSign = textToSign + privateKeyEncrypted
+
+        signature = base64.b64encode(random.long_to_bytes(self.loggedInSK.sign(textToSign, 0)[0]))
+        message = "updateKeys;name: " + self.loggedInUser + ";signatueB64: " + signature + ";newPK: " + newPKExported
+        message = message + ";newSKAesB64: " + newSKExported
+        if not self.__sendMsg(message) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDataExtracted = self.extractData(response)
+        msgErrorCode = msgDataExtracted[1]
+        if msgErrorCode == "":
+            raise Exception("Error Parsing Received Message (Error 1)")
+
+        if msgErrorCode == "successful":
+            self.loggedInSK = newRSAKey
+
+        return msgErrorCode
 
     def logout(self):
         self.loggedIn = False
