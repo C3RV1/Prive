@@ -1,1 +1,2 @@
-pycrypto
+Prive
+pycrypto=2.6.1
