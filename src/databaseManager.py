@@ -28,7 +28,7 @@ class DatabaseManager:
         privateKeyPath = self.databaseDirectory + "\\privateKey.skm"  # Private Key Master
 
         if not os.path.isfile(privateKeyPath):
-            raise Exception("DatabaseManager: Private Key File doesn't exist")
+            raise Exception("DatabaseManager: Private Key File doesn't exist: {0}".format(privateKeyPath))
 
         privateKeyFile = open(privateKeyPath, "r")
         privateKeyStr = privateKeyFile.read()
@@ -322,7 +322,7 @@ class DatabaseManager:
         self.databaseLock.release()
         return 4
 
-    def updateKeys(self, name, signatureB64, newPK, newSKAesB64):
+    def updateKeys(self, name, signatureB64, newPKB64, newSKAesB64):
         # type: (str, str, str, str) -> int
         # Returns errorCode
         # Error Codes (0 - All Correct,
@@ -333,6 +333,10 @@ class DatabaseManager:
         #              5 - Strange Error Where User Doesn't have PK,
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature)
+
+        self.databaseLock.acquire()
+
+        newPK = base64.b64decode(newPKB64)
 
         if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
             self.databaseLock.release()
@@ -375,7 +379,7 @@ class DatabaseManager:
             pkFile.write(newPK)
             pkFile.close()
 
-            skFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64")
+            skFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64", "w")
             skFile.write(newSKAesB64)
             skFile.close()
 

@@ -26,8 +26,9 @@ class AutoKeepAlive(threading.Thread):
 
 class PriveAPIInstance:
 
-    def __init__(self, serverIP, serverPublicKeyFile="serverPublicKey.pk", serverPort=4373, autoKeepAlive=True):
-        # type: (str, str, int, bool) -> None
+    def __init__(self, serverIP, serverPublicKeyFile="serverPublicKey.pk", serverPort=4373, autoKeepAlive=True,
+                 keySize=4096):
+        # type: (str, str, int, bool, int) -> None
         # Server Socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((serverIP, serverPort))
@@ -36,6 +37,7 @@ class PriveAPIInstance:
         self.loggedInUser = ""  # Active User
         self.loggedInPassword = ""  # Active User Password
         self.loggedIn = False
+        self.keySize = keySize
 
         serverPublicKeyF = open(serverPublicKeyFile, "r")
         serverPublicKeyStr = serverPublicKeyF.read()
@@ -103,7 +105,7 @@ class PriveAPIInstance:
         :return: errorMsg
         """
         # Generate RSA Keys
-        rsaKeys = RSA.generate(2048)
+        rsaKeys = RSA.generate(self.keySize)
         privateKey = rsaKeys.exportKey()
         publicKey = base64.b64encode(rsaKeys.publickey().exportKey())
 
@@ -299,8 +301,9 @@ class PriveAPIInstance:
         if not self.loggedIn:
             return "notLoggedIn"
 
-        newRSAKey = RSA.generate()
+        newRSAKey = RSA.generate(self.keySize)
         newPKExported = newRSAKey.publickey().exportKey()
+        newPKExportedB64 = base64.b64encode(newRSAKey.publickey().exportKey())
         newSKExported = newRSAKey.exportKey()
 
         # Encrypt & B64
@@ -308,10 +311,11 @@ class PriveAPIInstance:
 
         textToSign = "updateKeys;name: " + self.loggedInUser + ";newPK: " + newPKExported + ";newSKAesB64: "
         textToSign = textToSign + privateKeyEncrypted
+        textToSign = SHA256.new(textToSign).digest()
 
         signature = base64.b64encode(random.long_to_bytes(self.loggedInSK.sign(textToSign, 0)[0]))
-        message = "updateKeys;name: " + self.loggedInUser + ";signatueB64: " + signature + ";newPK: " + newPKExported
-        message = message + ";newSKAesB64: " + newSKExported
+        message = "updateKeys;name: " + self.loggedInUser + ";signatureB64: " + signature + ";newPKB64: "
+        message = message + newPKExportedB64 + ";newSKAesB64: " + privateKeyEncrypted
         if not self.__sendMsg(message) == 0:
             raise Exception("Error Communicating with Server (Error 0)")
 

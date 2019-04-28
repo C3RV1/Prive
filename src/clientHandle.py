@@ -89,8 +89,6 @@ class ClientHandle(threading.Thread):
         pass
 
     def handleMessage(self, data):
-
-        print "24: " + repr(data)
         self.timeoutList[0] = 0
         data = data[:-2]
         self.log("Received from client " + self.clientAddress[0] + " " + str(self.clientAddress[1]) + " : " + repr(data))
@@ -254,7 +252,8 @@ class ClientHandle(threading.Thread):
             self.clientSocket.send(msg)
             return False
 
-        updateKeys = re.search("^updateKeys;name: (.+);signatureB64: (.+);newPK: (.+);newSKAesB64: (.+)$")
+        updateKeys = re.search("^updateKeys;name: (.+);signatureB64: (.+);newPKB64: (.+);newSKAesB64: (.+)$",
+                               decryptedMessage)
 
         if updateKeys:
             l_name = updateKeys.group(1)

@@ -90,6 +90,6 @@ def menu(priveConnection):
 
 
 if __name__ == "__main__":
-    priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1", serverPublicKeyFile="../serverPublicKey.pk")
+    priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1", serverPublicKeyFile="serverPublicKey.pk",keySize=2048)
     menu(priveConnection)
     priveConnection.close()
