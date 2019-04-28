@@ -8,8 +8,6 @@ import re
 import time
 import threading
 
-# Prive Error Codes
-
 class AutoKeepAlive(threading.Thread):
 
     def __init__(self, serverSocket, keepAliveMsg):
@@ -217,7 +215,7 @@ class PriveAPIInstance:
         # type: (str, str) -> tuple
         """
 
-        Logins as userName param using password param
+        Login as <userName> using <password>
 
         :param userName: User to login to
         :param password: Password for user
@@ -299,7 +297,7 @@ class PriveAPIInstance:
 
     def updateKeys(self):
         if not self.loggedIn:
-            return "Not logged in"
+            return "notLoggedIn"
 
         newRSAKey = RSA.generate()
         newPKExported = newRSAKey.publickey().exportKey()

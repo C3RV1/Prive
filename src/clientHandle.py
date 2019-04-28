@@ -275,9 +275,9 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == 3:
                 msg = "Invalid newSKAesB64 Characters;errorCode: invalidNewSKAesB64"
             elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid newPK Format or Characters;errorCode: invalidPK"
+                msg = "Invalid newPK Format or Characters;errorCode: invalidNewPK"
             elif l_databaseQueryErrorCode == 5:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK"
+                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
             elif l_databaseQueryErrorCode == 6:
                 msg = "Error Importing User PK;errorCode: faultyPK"
             elif l_databaseQueryErrorCode == 7:
