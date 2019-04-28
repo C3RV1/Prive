@@ -1,4 +1,5 @@
 import PriveAPI
+import PriveAPI_ErrorCodes as PriveAPI_eC
 import math
 
 def register(priveConnection):
@@ -7,11 +8,11 @@ def register(priveConnection):
         userName = raw_input("User Name: ")
         password = raw_input("Password: ")
         createUsrRes = priveConnection.createUser(userName, password)
-        if createUsrRes == "usrAlreadyExists":
+        if createUsrRes == PriveAPI_eC.createUser.userAlreadyExists:
             print "User Already Exists"
-        elif createUsrRes == "invalidName":
+        elif createUsrRes == PriveAPI_eC.createUser.invalidNameCharacters:
             print "Name Contains Invalid Characters -> /\\:\"?*<>|."
-        elif createUsrRes == "successful":
+        elif createUsrRes == PriveAPI_eC.createUser.successful:
             print "User Created Successfully"
             break
         else:
@@ -24,13 +25,13 @@ def login(priveConnection):
         userName = raw_input("User Name: ")
         password = raw_input("Password: ")
         loginResult = priveConnection.login(userName, password)
-        if loginResult[0] == "usrNotFound":
+        if loginResult[0] == PriveAPI_eC.login.userNotFound:
             print "User Not Found"
-        elif loginResult[0] == "incorrect":
+        elif loginResult[0] == PriveAPI_eC.login.incorrectPassword:
             print "Incorrect Password"
-        elif loginResult[0] == "accountLocked":
+        elif loginResult[0] == PriveAPI_eC.login.accountLocked:
             print "Account Locked. Wait {0} seconds before trying again".format(math.ceil(loginResult[1]))
-        elif loginResult[0] == "successful":
+        elif loginResult[0] == PriveAPI_eC.login.successful:
             print "Logged In Successfully"
             break
         else:
@@ -65,7 +66,7 @@ def menu(priveConnection):
                 are_you_sure = raw_input("Are you sure? [y/N]")
                 if are_you_sure == "y" or are_you_sure == "Y":
                     opResult = priveConnection.deleteUser()
-                    if opResult == "successful":
+                    if opResult == PriveAPI_eC.deleteUser.successful:
                         print "User deleted successfully"
                     else:
                         print "Error deleting user"
@@ -75,7 +76,13 @@ def menu(priveConnection):
         elif option == 4 and priveConnection.loggedIn is True:
             priveConnection.logout()
         elif option == 5 and priveConnection.loggedIn is True:
-            priveConnection.updateKeys()
+            print "Updating Keys..."
+            result = priveConnection.updateKeys()
+            if result == PriveAPI_eC.updateKeys.successful:
+                print "Keys Updated Sucessfully"
+            else:
+                print "Error updating keys"
+                print "Error Code: {0}".format(result)
         elif option == 6 and priveConnection.loggedIn is True:
             break
         else:
