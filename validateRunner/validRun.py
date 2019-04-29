@@ -29,7 +29,7 @@ if __name__ == "__main__":
     filePath = sys.argv[1]
     fileName = os.path.basename(filePath)
 
-    fileSearch = re.search("^([A-Za-z0-9]+\\.v[0-9]+)\\.prv", fileName)
+    fileSearch = re.search("^([A-Za-z0-9]+-v[0-9]+)\\.prv", fileName)
 
     if not fileSearch:
         raise Exception("Bad Filename format")
@@ -54,13 +54,13 @@ if __name__ == "__main__":
     if not os.path.isfile(programFolder + "\\signature.sign"):
         raise Exception("Not signature file")
 
-    mainProgramZipFile = open(programFolder + "mainProgram.zip", "r")
+    mainProgramZipFile = open(programFolder + "\\mainProgram.zip", "r")
     mainProgramZipStr = mainProgramZipFile.read()
     mainProgramZipFile.close()
 
     mainProgramZipSHA = SHA256.new(mainProgramZipStr).digest()
 
-    signatureFile = open(programFolder + "signature.sign", "r")
+    signatureFile = open(programFolder + "\\signature.sign", "r")
     signatureStrB64 = signatureFile.read()
     signatureFile.close()
 
@@ -70,14 +70,17 @@ if __name__ == "__main__":
 
     if validSignature is True:
         zip_ref2 = zipfile.ZipFile(programFolder + "\\mainProgram.zip")
-        os.mkdir(".\\SavedPrograms\\" + fileName)
-        zip_ref2.extractall(".\\SavedPrograms\\" + fileName)
+        os.mkdir(".\\SavedPrograms\\" + fileSearch.group(1))
+        zip_ref2.extractall(".\\SavedPrograms\\" + fileSearch.group(1))
         zip_ref2.close()
 
-        if not os.path.isfile(".\\SavedPrograms\\" + fileName + "\\main.py"):
+        if not os.path.isfile(".\\SavedPrograms\\" + fileSearch.group(1) + "\\main.py"):
             raise Exception("Not main.py in program")
 
-        importedMainPy = importlib.import_module(".\\SavedPrograms\\" + fileName + "\\main.py")
+        sys.path.append("SavedPrograms\\" + fileSearch.group(1))
+        fn = "main"
+
+        importedMainPy = importlib.import_module(fn)
         importedMainClass = getattr(importedMainPy, "MainClass")
         mainInstance = importedMainClass()
     else:

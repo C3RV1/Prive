@@ -14,7 +14,7 @@ if __name__ == "__main__":
     skFile.close()
 
     zipFile = open(".\\ToBuild\\mainProgram.zip", "r")
-    zipSign = base64.b64encode(random.long_to_bytes(sk.sign(SHA256.new(zipFile.read()).digest())[0]))
+    zipSign = base64.b64encode(random.long_to_bytes(sk.sign(SHA256.new(zipFile.read()).digest(),0)[0]))
     zipFile.close()
 
     signatureFile = open(".\\ToBuild\\signature.sign", "w")
@@ -24,13 +24,14 @@ if __name__ == "__main__":
     filePaths = []
 
     # Read all directory, subdirectories and file lists
-    for root, directories, files in os.walk(".\\ToBuild"):
+    os.chdir(".\\ToBuild")
+    for root, directories, files in os.walk(".\\"):
         for filename in files:
             # Create the full filepath by using os module.
-            filePath = os.path.join(root, filename)
+            filePath = filename
             filePaths.append(filePath)
 
-    zip_file = zipfile.ZipFile("NewApp.v0" + '.prv', 'w')
+    zip_file = zipfile.ZipFile("..\\output\\NewApp-v0" + '.prv', 'w')
     with zip_file:
         # writing each file one by one
         for fileToZip in filePaths:
