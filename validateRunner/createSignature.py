@@ -4,8 +4,12 @@ from Crypto.Hash import SHA256
 import os
 import base64
 import zipfile
+import shutil
 
 if __name__ == "__main__":
+
+    os.mkdir("ToBuild")
+
     if not os.path.isfile(".\\code\\main.py"):
         raise Exception("No main to \"Compile\"")
 
@@ -60,11 +64,15 @@ if __name__ == "__main__":
         else:
             break
 
-    zip_file = zipfile.ZipFile("..\\output\\NewApp-v0" + '.prv', 'w')
+    zip_file = zipfile.ZipFile("..\\output\\NewApp-v" + str(appNum) + '.prv', 'w')
     with zip_file:
         # writing each file one by one
         for fileToZip in filePaths:
             zip_file.write(fileToZip)
+
+    os.chdir("..")
+
+    shutil.rmtree("ToBuild")
 
     print "Successful"
 
