@@ -6,6 +6,27 @@ import base64
 import zipfile
 
 if __name__ == "__main__":
+    if not os.path.isfile(".\\code\\main.py"):
+        raise Exception("No main to \"Compile\"")
+
+    filePaths2 = []
+
+    os.chdir(".\\code")
+    for root, directories, files in os.walk(".\\"):
+        for filename in files:
+            # Create the full filepath by using os module.
+            filePath = filename
+            filePaths2.append(filePath)
+
+    zip_ref3 = zipfile.ZipFile("..\\ToBuild\\mainProgram.zip", "w")
+
+    with zip_ref3:
+        # writing each file one by one
+        for fileToZip in filePaths2:
+            zip_ref3.write(fileToZip)
+
+    os.chdir("..")
+
     if not os.path.isfile(".\\ToBuild\\mainProgram.zip"):
         raise Exception("No program")
 
