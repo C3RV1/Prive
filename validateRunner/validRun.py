@@ -21,11 +21,6 @@ if __name__ == "__main__":
         print newRSAKey.exportKey()
         raise Exception("No Public Key")
 
-    publicKeyFile = open(".\\publickey.pk", "r")
-    publicKeyStr = publicKeyFile.read()
-    publicKeyFile.close()
-    publicKey = RSA.importKey(publicKeyStr)
-
     filePath = sys.argv[1]
     fileName = os.path.basename(filePath)
 
@@ -42,6 +37,11 @@ if __name__ == "__main__":
         importedMainClass = getattr(importedMainPy, "MainClass")
         mainInstance = importedMainClass()
         sys.exit()
+
+    publicKeyFile = open(".\\publickey.pk", "r")
+    publicKeyStr = publicKeyFile.read()
+    publicKeyFile.close()
+    publicKey = RSA.importKey(publicKeyStr)
 
     if not os.path.isfile(filePath):
         raise Exception("File doesn't exist")
@@ -86,16 +86,16 @@ if __name__ == "__main__":
         if not os.path.isfile(".\\SavedPrograms\\" + fileSearch.group(1) + "\\main.py"):
             raise Exception("Not main.py in program")
 
+        # Garebage collection
+        shutil.rmtree(".\\" + fileSearch.group(1))
+        os.remove(".\\" + fileSearch.group(1) + ".zip")
+
         sys.path.append("SavedPrograms\\" + fileSearch.group(1))
         fn = "main"
 
         importedMainPy = importlib.import_module(fn)
         importedMainClass = getattr(importedMainPy, "MainClass")
         mainInstance = importedMainClass()
-
-        # Garebage collection
-        shutil.rmtree(".\\" + fileSearch.group(1))
-        os.remove(".\\" + fileSearch.group(1) + ".zip")
     else:
         raise Exception("Invalid file signature")
 

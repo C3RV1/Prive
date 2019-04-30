@@ -31,6 +31,14 @@ if __name__ == "__main__":
             filePath = filename
             filePaths.append(filePath)
 
+    appNum = 0
+
+    while True:
+        if os.path.isfile("..\\output\\NewApp-v" + str(appNum) + ".prv"):
+            appNum = appNum + 1
+        else:
+            break
+
     zip_file = zipfile.ZipFile("..\\output\\NewApp-v0" + '.prv', 'w')
     with zip_file:
         # writing each file one by one
