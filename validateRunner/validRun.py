@@ -24,7 +24,7 @@ if __name__ == "__main__":
     filePath = sys.argv[1]
     fileName = os.path.basename(filePath)
 
-    fileSearch = re.search("^([A-Za-z0-9]+-v[0-9]+)\\.prv", fileName)
+    fileSearch = re.search("^([A-Za-z0-9.]+-v[0-9]+)\\.prv", fileName)
 
     if not fileSearch:
         raise Exception("Bad Filename format")
