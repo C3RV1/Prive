@@ -34,6 +34,15 @@ if __name__ == "__main__":
     if not fileSearch:
         raise Exception("Bad Filename format")
 
+    if os.path.isfile(".\\SavedPrograms\\" + fileSearch.group(1) + "\\main.py"):
+        sys.path.append("SavedPrograms\\" + fileSearch.group(1))
+        fn = "main"
+
+        importedMainPy = importlib.import_module(fn)
+        importedMainClass = getattr(importedMainPy, "MainClass")
+        mainInstance = importedMainClass()
+        sys.exit()
+
     if not os.path.isfile(filePath):
         raise Exception("File doesn't exist")
 
@@ -83,6 +92,10 @@ if __name__ == "__main__":
         importedMainPy = importlib.import_module(fn)
         importedMainClass = getattr(importedMainPy, "MainClass")
         mainInstance = importedMainClass()
+
+        # Garebage collection
+        shutil.rmtree(".\\" + fileSearch.group(1))
+        os.remove(".\\" + fileSearch.group(1) + ".zip")
     else:
         raise Exception("Invalid file signature")
 
