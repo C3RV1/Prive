@@ -1,6 +1,7 @@
 import PriveAPI
 import PriveAPI_ErrorCodes as PriveAPI_eC
 import math
+import os
 
 def register(priveConnection):
     # type: (PriveAPI.PriveAPIInstance) -> None
@@ -88,9 +89,12 @@ def menu(priveConnection):
         else:
             print "Option not accepted"
 
+def main():
+    priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1", serverPublicKeyFile="serverPublicKey.pk", keySize=2048)
+    menu(priveConnection)
+    priveConnection.close()
 
 class MainClass:
     def __init__(self):
-        priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1", serverPublicKeyFile="serverPublicKey.pk", keySize=2048)
-        menu(priveConnection)
-        priveConnection.close()
+        os.chdir(os.path.split(os.path.abspath(str(__file__)))[0])
+        main()
