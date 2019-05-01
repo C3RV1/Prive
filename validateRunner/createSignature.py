@@ -10,12 +10,17 @@ if __name__ == "__main__":
 
     os.mkdir("ToBuild")
 
-    if not os.path.isfile(".\\code\\main.py"):
+    codePath = raw_input("Code Folder (.\\code):")
+
+    if codePath == "":
+        codePath = ".\\code"
+
+    if not os.path.isfile(codePath + "\\main.py"):
         raise Exception("No main to \"Compile\"")
 
     filePaths2 = []
 
-    os.chdir(".\\code")
+    os.chdir(codePath)
     for root, directories, files in os.walk(".\\"):
         for filename in files:
             # Create the full filepath by using os module.
@@ -56,7 +61,12 @@ if __name__ == "__main__":
             filePath = filename
             filePaths.append(filePath)
 
-    appNum = 0
+    appName = raw_input("App Name(NewApp): ")
+
+    if appName == "":
+        appName = "NewApp"
+
+    appNum = input("App Version(0): ")
 
     while True:
         if os.path.isfile("..\\output\\NewApp-v" + str(appNum) + ".prv"):
