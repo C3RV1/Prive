@@ -1,5 +1,5 @@
-import PriveAPI
-import PriveAPI_ErrorCodes as PriveAPI_eC
+import PriveAPI.PriveAPI as PriveAPI
+import PriveAPI.PriveAPI_ErrorCodes as PriveAPI_eC
 import math
 
 def register(priveConnection):

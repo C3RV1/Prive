@@ -9,6 +9,22 @@ import re
 import base64
 import importlib
 
+def runProgram(fileSearch):
+    sys.path.append("SavedPrograms\\" + fileSearch)
+    fn = "main"
+
+    importedMainPy = importlib.import_module(fn)
+    importedMainClass = getattr(importedMainPy, "MainClass")
+
+    importedMainClassName = getattr(importedMainClass, "programName")
+    if not importedMainClassName == fileSearch:
+        raise Exception("Invalid fileSearch")
+
+    print "Running {0}".format(importedMainClassName)
+
+    mainInstance = importedMainClass()
+    sys.exit()
+
 if __name__ == "__main__":
     if not sys.argv.__len__() == 2:
         raise Exception("No file input")
