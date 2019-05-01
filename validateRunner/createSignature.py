@@ -31,14 +31,14 @@ if __name__ == "__main__":
             filePath = filename
             filePaths2.append(filePath)
 
-    zip_ref3 = zipfile.ZipFile("..\\ToBuild\\mainProgram.zip", "w")
+    zip_ref3 = zipfile.ZipFile(os.path.split(os.path.abspath(str(__file__)))[0] + "\\ToBuild\\mainProgram.zip", "w")
 
     with zip_ref3:
         # writing each file one by one
         for fileToZip in filePaths2:
             zip_ref3.write(fileToZip)
 
-    os.chdir("..")
+    os.chdir(os.path.split(os.path.abspath(str(__file__)))[0])
 
     if not os.path.isfile(".\\ToBuild\\mainProgram.zip"):
         raise Exception("No program")
@@ -70,12 +70,12 @@ if __name__ == "__main__":
     appNum = int(sys.argv[3])
 
     while True:
-        if os.path.isfile("..\\output\\NewApp-v" + str(appNum) + ".prv"):
+        if os.path.isfile("..\\output\\" + appName + "-v" + str(appNum) + ".prv"):
             appNum = appNum + 1
         else:
             break
 
-    zip_file = zipfile.ZipFile("..\\output\\NewApp-v" + str(appNum) + '.prv', 'w')
+    zip_file = zipfile.ZipFile("..\\output\\" + appName + "-v" + str(appNum) + '.prv', 'w')
     with zip_file:
         # writing each file one by one
         for fileToZip in filePaths:

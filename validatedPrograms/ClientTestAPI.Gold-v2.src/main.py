@@ -92,7 +92,7 @@ def menu(priveConnection):
 
 class MainClass(PriveAPI_mC.MainClassBase):
 
-    programName = "ClientTestAPI-Gold"
+    programName = "ClientTestAPI.Gold"
 
     def __init__(self):
         PriveAPI_mC.MainClassBase.__init__(self)
