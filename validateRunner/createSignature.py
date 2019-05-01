@@ -66,7 +66,7 @@ if __name__ == "__main__":
     if appName == "":
         appName = "NewApp"
 
-    appNum = input("App Version(0): ")
+    appNum = input("App Build Number(0): ")
 
     while True:
         if os.path.isfile("..\\output\\NewApp-v" + str(appNum) + ".prv"):
