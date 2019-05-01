@@ -5,12 +5,16 @@ import os
 import base64
 import zipfile
 import shutil
+import sys
 
 if __name__ == "__main__":
 
+    if not sys.argv.__len__() == 4:
+        raise Exception("Bad Number of Arguments")
+
     os.mkdir("ToBuild")
 
-    codePath = raw_input("Code Folder (.\\code):")
+    codePath = sys.argv[1]
 
     if codePath == "":
         codePath = ".\\code"
@@ -61,12 +65,9 @@ if __name__ == "__main__":
             filePath = filename
             filePaths.append(filePath)
 
-    appName = raw_input("App Name(NewApp): ")
+    appName = sys.argv[2]
 
-    if appName == "":
-        appName = "NewApp"
-
-    appNum = input("App Build Number(0): ")
+    appNum = int(sys.argv[3])
 
     while True:
         if os.path.isfile("..\\output\\NewApp-v" + str(appNum) + ".prv"):
