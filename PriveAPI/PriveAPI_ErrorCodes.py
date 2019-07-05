@@ -19,7 +19,7 @@ class login:
 class deleteUser:
     notLoggedIn = "notLoggedIn"
     successful = "successful"
-    userWithoutPK = "wtfHappenedToThePK"
+    userWithoutPK = "wtfHappenedToThePK"  # Should never be seen
     invalidSignatureCharacters = "invalidSignCh"
     userNotFound = "usrNotFound"
     invalidSignature = "invalidSign"
@@ -32,6 +32,11 @@ class updateKeys:
     invalidSignatureCharacters = "invalidSignCh"
     invalidNewSK = "invalidNewSKAesB64"
     invalidNewPK = "invalidNewPK"
-    userWithoutPK = "wtfHappenedToThePK"
+    userWithoutPK = "wtfHappenedToThePK"  # Should never be seen
     faultyUserPK = "faultyPK"
     invalidSignature = "invalidSign"
+
+class getUserPK:
+    successful = "successful"
+    userNotFound = "usrNotFound"
+    userWithoutPK = "wtfHappenedToThePK"  # Should never be seen

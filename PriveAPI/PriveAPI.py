@@ -337,6 +337,32 @@ class PriveAPIInstance:
 
         return msgErrorCode
 
+    def getUserPK(self, user):
+        message = "getPK;name: {0}".format(user)
+        if not self.__sendMsg(message) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if not response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = response[1]
+        msgDataExtracted = self.extractData(response)
+        msgErrorCode = msgDataExtracted[1]
+        msgData = msgDataExtracted[0]
+
+        if msgErrorCode == "":
+            raise Exception("Error Parsing Received Message (Error 1)")
+
+        if not msgErrorCode == "successful":
+            return "", msgErrorCode
+
+        msgDataRe = re.search("^pk;pk: (.+)$", msgData)
+        if not msgDataRe:
+            raise Exception("Error with Server Response (Error 2)")
+
+        return msgDataRe.group(1), msgErrorCode
+
     def logout(self):
         self.loggedIn = False
         self.loggedInSK = None
