@@ -1,6 +1,7 @@
-from Crypto.Random import random
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.Signature import PKCS1_v1_5
 import base64
 import threading
 import os
@@ -8,11 +9,14 @@ import re
 import logger
 import time
 import shutil
+import generateKeys
+import lineno
 
 
 class DatabaseManager:
 
-    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters):
+    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize):
+        #type: (str, str, str, int) -> None
         self.databaseDirectory = databaseDirectory
         self.unacceptedNameCharacters = unacceptedNameCharacters
 
@@ -28,7 +32,9 @@ class DatabaseManager:
         privateKeyPath = self.databaseDirectory + "\\privateKey.skm"  # Private Key Master
 
         if not os.path.isfile(privateKeyPath):
-            raise Exception("DatabaseManager: Private Key File doesn't exist: {0}".format(privateKeyPath))
+            print "Private key not found"
+            print "Creating private key"
+            genKeyObj = generateKeys.GenerateKeys(self.databaseDirectory, keySize)
 
         privateKeyFile = open(privateKeyPath, "r")
         privateKeyStr = privateKeyFile.read()
@@ -41,7 +47,7 @@ class DatabaseManager:
         #type: (str, int, str) -> bool
         self.databaseLock.acquire()
         sessionKeyb64decoded = base64.b64decode(sessionKey)
-        sessionKeyDecrypted = self.privateKey.decrypt(sessionKeyb64decoded)
+        sessionKeyDecrypted = PKCS1_v1_5.new(self.privateKey).decrypt(sessionKeyb64decoded)
         if len(sessionKeyDecrypted) != 16 and len(sessionKeyDecrypted) != 32 and len(sessionKeyDecrypted) != 24:
             self.databaseLock.release()
             return False
@@ -301,9 +307,15 @@ class DatabaseManager:
             self.databaseLock.release()
             return 5
 
-        signature = random.bytes_to_long(base64.b64decode(signatureB64))
+        signature = base64.b64decode(signatureB64)
+        signToVerify = SHA256.new()
+        signToVerify.update("delUser;name: " + name)
 
-        validSignature = pkKey.verify(SHA256.new("delUser;name: " + name).digest(), (signature, None))
+        try:
+            PKCS1_v1_5.new(pkKey).verify(signToVerify, signature)
+            validSignature = True
+        except ValueError:
+            validSignature = False
 
         if validSignature is True:
             #print 2
@@ -368,11 +380,15 @@ class DatabaseManager:
             self.databaseLock.release()
             return 6
 
-        signatureToVerify = "updateKeys;name: " + name + ";newPK: " + newPK + ";newSKAesB64: " + newSKAesB64
-        signatureToVerify = SHA256.new(signatureToVerify).digest()
-        signature = random.bytes_to_long(base64.b64decode(signatureB64))
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update("updateKeys;name: " + name + ";newPK: " + newPK + ";newSKAesB64: " + newSKAesB64)
+        signature = base64.b64decode(signatureB64)
 
-        validSignature = pkKey.verify(signatureToVerify, (signature, None))
+        try:
+            PKCS1_v1_5.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
 
         if validSignature is True:
             pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "w")
@@ -442,17 +458,24 @@ class DatabaseManager:
             self.databaseLock.release()
             return 8
 
-        signToVerify = "newChat;creatorName: " + creatorName + ";chatName: " + chatName + ";keys: " + keys
-        signToVerify = signToVerify + ";firstMessage: " + firstMessage
+        signToVerifyStr = "newChat;creatorName: " + creatorName + ";chatName: " + chatName + ";keys: " + keys
+        signToVerifyStr = signToVerifyStr + ";firstMessage: " + firstMessage
 
         pkFile = open(self.databaseDirectory + "\\Profiles\\" + creatorName + "\\publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
         pkKey = RSA.importKey(pk)
 
-        signature = random.bytes_to_long(base64.b64decode(signature))
+        signature = base64.b64decode(signature)
 
-        validSignature = pkKey.verify(signToVerify, (signature, None))
+        signToVerify = SHA256.new()
+        signToVerify.update(signToVerifyStr)
+
+        try:
+            PKCS1_v1_5.new(pkKey).verify(signToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
 
         if not validSignature:
             self.databaseLock.release()

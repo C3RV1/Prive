@@ -32,8 +32,8 @@ class ConsoleForExit(threading.Thread):
 class Server:
 
     def __init__(self, host, port, name, maxCurrentUsers, databasePath, logFile, unacceptedNameCharacters,
-                 clientTimeout):
-        # type: (str, int, str, int, str, str, str, int) -> None
+                 clientTimeout, keySize):
+        # type: (str, int, str, int, str, str, str, int, int) -> None
         self.name = name
         self.host = host
         self.port = port

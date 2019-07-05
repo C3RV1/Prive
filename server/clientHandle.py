@@ -1,5 +1,6 @@
 from Crypto.Cipher import AES
 from Crypto.Random import random
+from Crypto.Random import get_random_bytes
 import server
 import re
 import databaseManager
@@ -298,7 +299,7 @@ class ClientHandle(threading.Thread):
         plaintextPadded = plaintext + ClientHandle.getRandString(length-1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertext = base64.b64encode(AES.new(key).encrypt(plaintextPadded))
+        ciphertext = base64.b64encode(AES.new(key, AES.MODE_CFB).encrypt(plaintextPadded))
         return True, ciphertext
 
     @staticmethod
@@ -307,7 +308,7 @@ class ClientHandle(threading.Thread):
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
         ciphertextNotB64 = base64.b64decode(ciphertext)
-        plaintextPadded = AES.new(key).decrypt(ciphertextNotB64)
+        plaintextPadded = AES.new(key, AES.MODE_CFB).decrypt(ciphertextNotB64)
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
 
@@ -315,8 +316,8 @@ class ClientHandle(threading.Thread):
     def getRandString(len):
         # type: (int) -> str
         returnString = ""
-        for x in range(0,len):
-            returnString += chr(random.getrandbits(8))
+        for x in range(0, len):
+            returnString += get_random_bytes(1)
         return returnString
 
 # Code NOT USED

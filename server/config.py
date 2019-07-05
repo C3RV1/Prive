@@ -9,3 +9,4 @@ class Config:
     LOGFILE = "..\\prive.log"
     UNACCEPTED_NAME_CHARCTERS = "\r\n/\\\\:\"?*<>|."
     CLIENT_TIMEOUT = 10
+    KEYSIZE = 4096

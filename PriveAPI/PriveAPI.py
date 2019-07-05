@@ -1,7 +1,10 @@
+from Crypto.Random import *
 from Crypto.Random import random
 from Crypto.Cipher import AES
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.Signature import PKCS1_v1_5 as PKCS1_v1_5_Sign
 import base64
 import socket
 import re
@@ -58,7 +61,7 @@ class PriveAPIInstance:
     def __generateSessionKey(self):
         self.sessionKey = ""
         while not len(self.sessionKey) == 32:
-            self.sessionKey = random.long_to_bytes(random.getrandbits(256))
+            self.sessionKey = get_random_bytes(32)
 
     # Creates a Session Key and sends it
     def __sendCreateSessionKeyMessage(self):
@@ -66,7 +69,7 @@ class PriveAPIInstance:
         self.__generateSessionKey()
 
         # Encrypt Session Key & Turn to B64
-        sessionKeyEncrypted = self.serverPublicKey.encrypt(self.sessionKey, 2)[0]
+        sessionKeyEncrypted = PKCS1_v1_5.new(self.serverPublicKey).encrypt(self.sessionKey)
         sessionKeyB64 = base64.b64encode(sessionKeyEncrypted)
 
         # Message
@@ -114,7 +117,7 @@ class PriveAPIInstance:
         password = password + chr(pwdLength) * pwdLength
 
         # Validation Token
-        vt = random.long_to_bytes(random.getrandbits(1024))
+        vt = get_random_bytes(128)
         vtSha = SHA256.new(vt).digest()
 
         # Encrypt & B64
@@ -180,8 +183,8 @@ class PriveAPIInstance:
 
     def __checkVT(self, userName, password, vtDecrypted):
         # Validation Token
-        newvt = random.long_to_bytes(random.getrandbits(1024))
-        newvtSha = SHA256.new(newvt).digest()
+        newvt = get_random_bytes(128)
+        newvtSha = SHA256.new(newvt)
 
         # Encrypt & B64
         newvtEncrypted = self.encryptWithPadding(password, newvt)[1]
@@ -274,8 +277,8 @@ class PriveAPIInstance:
         if not self.loggedIn:
             return "Not logged in"
 
-        textToSign = SHA256.new("delUser;name: " + self.loggedInUser).digest()
-        signature = base64.b64encode(random.long_to_bytes(self.loggedInSK.sign(textToSign, 0)[0]))
+        textToSign = SHA256.new("delUser;name: " + self.loggedInUser)
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         message = "delUser;name: " + self.loggedInUser + ";sign: " + signature
         if not self.__sendMsg(message) == 0:
             raise Exception("Error Communicating with Server (Error 0)")
@@ -311,9 +314,9 @@ class PriveAPIInstance:
 
         textToSign = "updateKeys;name: " + self.loggedInUser + ";newPK: " + newPKExported + ";newSKAesB64: "
         textToSign = textToSign + privateKeyEncrypted
-        textToSign = SHA256.new(textToSign).digest()
+        textToSign = SHA256.new(textToSign)
 
-        signature = base64.b64encode(random.long_to_bytes(self.loggedInSK.sign(textToSign, 0)[0]))
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         message = "updateKeys;name: " + self.loggedInUser + ";signatureB64: " + signature + ";newPKB64: "
         message = message + newPKExportedB64 + ";newSKAesB64: " + privateKeyEncrypted
         if not self.__sendMsg(message) == 0:
@@ -417,7 +420,7 @@ class PriveAPIInstance:
         # type: (int) -> str
         returnString = ""
         for x in range(0, len):
-            returnString += chr(random.getrandbits(8))
+            returnString += get_random_bytes(1)
         return returnString
 
     # Encrypt Using AES and Padding
@@ -440,7 +443,7 @@ class PriveAPIInstance:
         plaintextPadded = plaintext + PriveAPIInstance.getRandString(length - 1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertext = base64.b64encode(AES.new(key).encrypt(plaintextPadded))
+        ciphertext = base64.b64encode(AES.new(key, AES.MODE_CFB).encrypt(plaintextPadded))
         return True, ciphertext
 
     # Decrypt Using AES padded message
@@ -461,7 +464,7 @@ class PriveAPIInstance:
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
         ciphertextNotB64 = base64.b64decode(ciphertext)
-        plaintextPadded = AES.new(key).decrypt(ciphertextNotB64)
+        plaintextPadded = AES.new(key, AES.MODE_CFB).decrypt(ciphertextNotB64)
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
 
