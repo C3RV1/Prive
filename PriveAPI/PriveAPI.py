@@ -190,7 +190,7 @@ class PriveAPIInstance:
 
         # Encrypt & B64
         newvtEncrypted = self.encryptWithPadding(password, newvt)[1]
-        newvtShaB64 = base64.b64encode(newvtSha)
+        newvtShaB64 = base64.b64encode(newvtSha.digest())
 
         message = "checkVT;name: " + userName + ";vt: " + vtDecrypted + ";newVTSha: " + newvtShaB64 + ";newVTEnc: "
         message = message + newvtEncrypted
