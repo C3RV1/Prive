@@ -44,7 +44,7 @@ class Server:
         self.clientThreads = []
         self.clientTimeout = clientTimeout
         try:
-            self.database = databaseManager.DatabaseManager(databasePath, logFile, unacceptedNameCharacters)
+            self.database = databaseManager.DatabaseManager(databasePath, logFile, unacceptedNameCharacters, keySize)
         except Exception as e:
             print e.message
             return

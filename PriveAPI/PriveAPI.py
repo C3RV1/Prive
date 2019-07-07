@@ -3,13 +3,14 @@ from Crypto.Random import random
 from Crypto.Cipher import AES
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
-from Crypto.Cipher import PKCS1_v1_5
+from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import PKCS1_v1_5 as PKCS1_v1_5_Sign
 import base64
 import socket
 import re
 import time
 import threading
+
 
 class AutoKeepAlive(threading.Thread):
 
@@ -33,6 +34,7 @@ class PriveAPIInstance:
                  keySize=4096):
         # type: (str, str, int, bool, int) -> None
         # Server Socket
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((serverIP, serverPort))
         self.sessionKeySet = False
@@ -69,7 +71,7 @@ class PriveAPIInstance:
         self.__generateSessionKey()
 
         # Encrypt Session Key & Turn to B64
-        sessionKeyEncrypted = PKCS1_v1_5.new(self.serverPublicKey).encrypt(self.sessionKey)
+        sessionKeyEncrypted = PKCS1_OAEP.new(self.serverPublicKey).encrypt(self.sessionKey)
         sessionKeyB64 = base64.b64encode(sessionKeyEncrypted)
 
         # Message
@@ -469,7 +471,7 @@ class PriveAPIInstance:
         plaintextPadded = plaintext + PriveAPIInstance.getRandString(length - 1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertext = base64.b64encode(AES.new(key, AES.MODE_CFB).encrypt(plaintextPadded))
+        ciphertext = base64.b64encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
         return True, ciphertext
 
     # Decrypt Using AES padded message
@@ -490,7 +492,7 @@ class PriveAPIInstance:
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
         ciphertextNotB64 = base64.b64decode(ciphertext)
-        plaintextPadded = AES.new(key, AES.MODE_CFB).decrypt(ciphertextNotB64)
+        plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
 

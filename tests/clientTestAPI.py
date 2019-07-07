@@ -45,11 +45,11 @@ def login(priveConnection):
 def menu(priveConnection):
     # type: (PriveAPI.PriveAPIInstance) -> None
     while True:
-        if priveConnection.loggedIn == True:
+        if priveConnection.loggedIn is True:
             print "Logged in as {0}".format(priveConnection.loggedInUser)
         print "1. Register"
         print "2. Login"
-        if priveConnection.loggedIn == True:
+        if priveConnection.loggedIn is True:
             print "3. Delete User"
             print "4. Logout"
             print "5. Update Keys"

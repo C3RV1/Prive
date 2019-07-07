@@ -52,7 +52,8 @@ class ClientHandle(threading.Thread):
 
     def run(self):
         while True:
-            try:
+            #try:
+            if True:
                 data = ""
                 while True:
                     newData = self.clientSocket.recv(4096)
@@ -64,13 +65,13 @@ class ClientHandle(threading.Thread):
                 if not self.serverMaster.running.returnRunning():
                     self.clientSocket.send("quit\r\n")
                     break
-            except Exception as e:
+            """except Exception as e:
                 self.log("Error Receiving Client: " + str(self.clientAddress[0]) + " " + str(self.clientAddress[1]))
                 if type(e.message) == str:
                     self.log("Error Msg: " + e.message)
                 else:
                     self.log("Error Msg not String")
-                break
+                break"""
         self.databaseManager.deleteSessionKey(self.clientAddress[0], self.clientAddress[1])
         self.log("Closing Client: " + str(self.clientAddress[0]) + " " + str(self.clientAddress[1]))
         try:
@@ -299,7 +300,7 @@ class ClientHandle(threading.Thread):
         plaintextPadded = plaintext + ClientHandle.getRandString(length-1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertext = base64.b64encode(AES.new(key, AES.MODE_CFB).encrypt(plaintextPadded))
+        ciphertext = base64.b64encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
         return True, ciphertext
 
     @staticmethod
@@ -308,7 +309,7 @@ class ClientHandle(threading.Thread):
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
         ciphertextNotB64 = base64.b64decode(ciphertext)
-        plaintextPadded = AES.new(key, AES.MODE_CFB).decrypt(ciphertextNotB64)
+        plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
 

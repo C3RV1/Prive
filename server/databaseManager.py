@@ -1,7 +1,7 @@
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
-from Crypto.Cipher import PKCS1_v1_5
-from Crypto.Signature import PKCS1_v1_5
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Signature import PKCS1_v1_5 as PKCS1_v1_5_Sig
 import base64
 import threading
 import os
@@ -47,7 +47,7 @@ class DatabaseManager:
         #type: (str, int, str) -> bool
         self.databaseLock.acquire()
         sessionKeyb64decoded = base64.b64decode(sessionKey)
-        sessionKeyDecrypted = PKCS1_v1_5.new(self.privateKey).decrypt(sessionKeyb64decoded)
+        sessionKeyDecrypted = PKCS1_OAEP.new(self.privateKey).decrypt(sessionKeyb64decoded)
         if len(sessionKeyDecrypted) != 16 and len(sessionKeyDecrypted) != 32 and len(sessionKeyDecrypted) != 24:
             self.databaseLock.release()
             return False
@@ -312,7 +312,7 @@ class DatabaseManager:
         signToVerify.update("delUser;name: " + name)
 
         try:
-            PKCS1_v1_5.new(pkKey).verify(signToVerify, signature)
+            PKCS1_v1_5_Sig.new(pkKey).verify(signToVerify, signature)
             validSignature = True
         except ValueError:
             validSignature = False
@@ -385,7 +385,7 @@ class DatabaseManager:
         signature = base64.b64decode(signatureB64)
 
         try:
-            PKCS1_v1_5.new(pkKey).verify(signatureToVerify, signature)
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
             validSignature = True
         except:
             validSignature = False
@@ -472,7 +472,7 @@ class DatabaseManager:
         signToVerify.update(signToVerifyStr)
 
         try:
-            PKCS1_v1_5.new(pkKey).verify(signToVerify, signature)
+            PKCS1_v1_5_Sig.new(pkKey).verify(signToVerify, signature)
             validSignature = True
         except:
             validSignature = False
