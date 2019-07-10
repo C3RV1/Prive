@@ -288,6 +288,17 @@ class ClientHandle(threading.Thread):
             self.clientSocket.send(msg)
             return False
 
+        addPublicFile = re.search("^addPublicFile;user: (.+);fileName: (.+);fileB64: (.+);signture: (.+)",
+                                  decryptedMessage)
+
+        if addPublicFile and False:
+            l_user = addPublicFile.group(1)
+            l_fileName = addPublicFile.group(2)
+            l_fileB64 = addPublicFile.group(3)
+            l_signatureB64 = addPublicFile.group(4)
+
+            l_databaseQueryErrorCode = self.databaseManager.addPublicFile(l_user, l_fileName, l_fileB64, l_signatureB64)
+
         msg = "Invalid Request;errorCode: invalidReq"
         msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
         self.clientSocket.send(msg)
