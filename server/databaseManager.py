@@ -53,7 +53,7 @@ class DatabaseManager:
         try:
             return self.__newSessionKey(host, port, sessionKey)
         except:
-            self.log("Error newSessionKey")
+            self.log("Error newSessionKey", debug=True)
             return False
         finally:
             self.databaseLock.release()
@@ -96,7 +96,7 @@ class DatabaseManager:
     def getSessionKey(self, host, port):
         #type: (str, int) -> tuple
         self.databaseLock.acquire()
-        retValue = ()
+        retValue = (-1, "")
         try:
             retValue = self.__getSessionKey(host, port)
         except:
@@ -144,37 +144,45 @@ class DatabaseManager:
         if os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
             return 1
 
-        if not re.search("^[a-zA-Z0-9+/=]+$", skAesB64):
+        if not utils.isBase64(skAesB64):
             return 3
 
         if not re.search("^-----BEGIN PUBLIC KEY-----\n[a-zA-Z0-9+/=\n]+-----END PUBLIC KEY-----$", pk):
             return 4
 
-        if not re.search("^[a-zA-Z0-9+/=]+$", vtB64):
+        if not utils.isBase64(vtB64):
             return 5
 
-        if not re.search("^[a-zA-Z0-9+/=]+$", vtAesB64):
+        if not utils.isBase64(vtAesB64):
             return 6
 
         os.mkdir(self.databaseDirectory + "\\Profiles\\" + name)
 
         nameFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\name.username", "w")
         nameFile.write(name)
+        nameFile.close()
 
         pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "w")  # Public Key
         pkFile.write(pk)
+        pkFile.close()
 
         skFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64", "w")  # Secret Key Aes
         skFile.write(skAesB64)
+        skFile.close()
 
         vtFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64", "w")  # Validation Token
         vtFile.write(vtB64)
+        vtFile.close()
 
         vtAesFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validationEnc.vtaesb64",
                          "w")  # Validation Token Aes
         vtAesFile.write(vtAesB64)
+        vtAesFile.close()
 
         os.mkdir(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs")
+
+        publicFileList = open(self.databaseDirectory+ "\\Profiles\\" + name + "\\publicFileList.pufl", "w")
+        publicFileList.close()
 
         #chatsFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\chats.chts", "w")
         #chatsFile.close()
@@ -184,11 +192,11 @@ class DatabaseManager:
     def getVtAesB64(self, name):
         #type: (str) -> tuple
         self.databaseLock.acquire()
-        retValue = ()
+        retValue = (-1, "")
         try:
             retValue = self.__getVtAesB64(name)
         except:
-            self.log("Error getVtAesB64")
+            self.log("Error getVtAesB64", debug=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -214,11 +222,11 @@ class DatabaseManager:
     def checkVt(self, name, vtB64, ip, newVtSha, newVtEnc):
         #type: (str, str, str, str, str) -> tuple
         self.databaseLock.acquire()
-        retValue = ()
+        retValue = (-1, "")
         try:
             retValue = self.__checkVt(name, vtB64, ip, newVtSha, newVtEnc)
         except:
-            self.log("Error checkVt")
+            self.log("Error checkVt", debug=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -252,7 +260,7 @@ class DatabaseManager:
         if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64"):
             return 3, 0
 
-        if not re.search("^[a-zA-Z0-9+/=]+$", vtB64):
+        if not utils.isBase64(vtB64):
             return 4, 0
 
         vtFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64", "r")
@@ -279,11 +287,11 @@ class DatabaseManager:
     def getSk_(self, name):
         #type: (str) -> tuple
         self.databaseLock.acquire()
-        retValue = ()
+        retValue = (-1, "")
         try:
             retValue = self.__getSk_(name)
         except:
-            self.log("Error getSk_")
+            self.log("Error getSk_", debug=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -309,11 +317,11 @@ class DatabaseManager:
     def getPk(self, name):
         #type: (str) -> tuple
         self.databaseLock.acquire()
-        retValue = ()
+        retValue = (-1, "")
         try:
             retValue = self.__getPk(name)
         except:
-            self.log("Error getPk")
+            self.log("Error getPk", debug=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -343,7 +351,7 @@ class DatabaseManager:
         try:
             retValue = self.__delUser(name, signatureB64)
         except:
-            self.log("Error delUser")
+            self.log("Error delUser", debug=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -408,7 +416,7 @@ class DatabaseManager:
         try:
             retValue = self.__updateKeys(name, signatureB64, newPKB64, newSKAesB64)
         except:
-            self.log("Error updateKeys")
+            self.log("Error updateKeys", debug=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -430,10 +438,10 @@ class DatabaseManager:
         if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
             return 1
 
-        if not re.search("^[a-zA-Z0-9+/;=\n]+$", signatureB64):
+        if not utils.isBase64(signatureB64):
             return 2
 
-        if not re.search("^[a-zA-Z0-9+/;=\n]+$", newSKAesB64):
+        if not utils.isBase64(newSKAesB64):
             return 3
 
         if not re.search("^-----BEGIN PUBLIC KEY-----\n[a-zA-Z0-9+/=\n]+-----END PUBLIC KEY-----$", newPK):
@@ -476,28 +484,95 @@ class DatabaseManager:
 
     # File secction
 
-    def addPublicFile(self, user, fileName, fileB64, signatureB64):
+    def addPublicFile(self, user, fileNameB64, fileB64, signatureB64):
         self.databaseLock.acquire()
         retValue = -1
         try:
-            retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
+            retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
         except:
-            self.log("Error addPublicFile")
+            self.log("Error addPublicFile", debug=True)
         finally:
             self.databaseLock.release()
         return  retValue
 
-    def __addPublicFile(self, user, fileName, fileB64, signatureB64):
+    def __addPublicFile(self, name, fileNameB64, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
-        return 0
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Invalid FileNameB64 Characters,
+        #              3 - Invalid FileB64 Characters
+        #              4 - Invalid Signature Characters,
+        #              5 - Strange Error Where User Doesn't have PK,
+        #              6 - Error Importing User PK,
+        #              7 - Faulty Signature,
+        #              8 - Missing Public File List (PUFL))
+
+        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+            return 1
+
+        if not utils.isBase64(fileNameB64):
+            return 2
+
+        if not utils.isBase64(fileB64):
+            return 3
+
+        if not utils.isBase64(signatureB64):
+            return 4
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk"):
+            return 5
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl"):
+            return 8
+
+        pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            return 6
+
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update("addPublicFile;name: " + name + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
+        signature = base64.b64decode(signatureB64)
+
+        try:
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
+
+        if validSignature is True:
+
+            randomIdB64 = ""
+
+            while True:
+                randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
+                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\" + randomIdB64 + ".fd"):
+                    break
+                self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
+
+            publicFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
+            publicFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            publicFileList.close()
+
+            fileFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
+            fileFile.write(fileB64)
+            fileFile.close()
+
+            return 0
+
+        return 7
 
     def addHiddenFile(self, user, fileName, fileB64, signatureB64):
         self.databaseLock.acquire()
         retValue = -1
         try:
-            retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
+            retValue = self.__addHiddenFile(user, fileName, fileB64, signatureB64)
         except:
-            self.log("Error addPublicFile")
+            self.log("Error addHiddenFile", debug=True)
         finally:
             self.databaseLock.release()
         return  retValue
@@ -512,7 +587,7 @@ class DatabaseManager:
         try:
             retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
         except:
-            self.log("Error addPublicFile")
+            self.log("Error addPrivateFile", debug=True)
         finally:
             self.databaseLock.release()
         return  retValue
@@ -545,7 +620,7 @@ class DatabaseManager:
         # type: (str, str) -> tuple
         pass
 
-    def getFile(self, user, id):  # Works for Public & Hidden Files
+    def getFile(self, user, id):  # Works for both Public & Hidden Files
         # type: (str, str) -> tuple
         pass
 

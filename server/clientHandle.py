@@ -8,6 +8,7 @@ import socket
 import threading
 import base64
 import time
+import utils
 
 
 class Timeout(threading.Thread):
@@ -134,21 +135,23 @@ class ClientHandle(threading.Thread):
             l_skAesB64 = newUser.group(3)
             l_vtShaB64 = newUser.group(4)
             l_vtAesB64 = newUser.group(5)
-            l_databaseQueryResult = self.databaseManager.newUser(l_name, l_pkB64, l_skAesB64, l_vtShaB64, l_vtAesB64)
-            if l_databaseQueryResult == 0:
+            l_databaseQueryErrorCode = self.databaseManager.newUser(l_name, l_pkB64, l_skAesB64, l_vtShaB64, l_vtAesB64)
+            if l_databaseQueryErrorCode == 0:
                 msg = "New User Registered!;errorCode: successful"
-            elif l_databaseQueryResult == 1:
+            elif l_databaseQueryErrorCode == 1:
                 msg = "User Already Exists;errorCode: usrAlreadyExists"
-            elif l_databaseQueryResult == 2:
+            elif l_databaseQueryErrorCode == 2:
                 msg = "Invalid Name Characters;errorCode: invalidName"
-            elif l_databaseQueryResult == 3:
+            elif l_databaseQueryErrorCode == 3:
                 msg = "Invalid Private Key Characters;errorCode: invalidSK"
-            elif l_databaseQueryResult == 4:
+            elif l_databaseQueryErrorCode == 4:
                 msg = "Invalid Public Key Characters;errorCode: invalidPK"
-            elif l_databaseQueryResult == 5:
+            elif l_databaseQueryErrorCode == 5:
                 msg = "Invalid Validation Token Characters;errorCode: invalidVT"
-            elif l_databaseQueryResult == 6:
+            elif l_databaseQueryErrorCode == 6:
                 msg = "Invalid Encrypted Validation Token Characters;errorCode: invalidVTEnc"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
             msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
             self.clientSocket.send(msg)
             return False
@@ -167,6 +170,8 @@ class ClientHandle(threading.Thread):
                 msg = "User Doesn't Exist;errorCode: usrNotFound"
             elif l_databaseQueryErrorCode == 2:
                 msg = "User Without VtAESB64;errorCode: wtfHappenedToTheVTEnc"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
             msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
             self.clientSocket.send(msg)
@@ -203,6 +208,8 @@ class ClientHandle(threading.Thread):
                 msg = "Invalid Validation Token Characters;errorCode: invalidVT"
             elif l_databaseQueryErrorCode == 5:
                 msg = "Account Locked;timeBeforeUnlocking: " + str(l_databaseQueryResult[1]) + ";errorCode: accountLocked"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
             msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
             self.clientSocket.send(msg)
@@ -223,17 +230,19 @@ class ClientHandle(threading.Thread):
                 msg = "User Doesn't Exist;errorCode: usrNotFound"
             elif l_databaseQueryErrorCode == 2:
                 msg = "User Without PK;errorCode: wtfHappenedToThePK"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
             msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
             self.clientSocket.send(msg)
             return False
 
-        delUser = re.search("^delUser;name: (.+);sign: (.+)$",decryptedMessage)
+        delUser = re.search("^delUser;name: (.+);signatureB64: (.+)$",decryptedMessage)
 
         if delUser:
             l_name = delUser.group(1)
-            l_signature = delUser.group(2)
-            l_databaseQueryErrorCode = self.databaseManager.delUser(l_name, l_signature)
+            l_signatureB64 = delUser.group(2)
+            l_databaseQueryErrorCode = self.databaseManager.delUser(l_name, l_signatureB64)
 
             msg = ""
 
@@ -249,6 +258,8 @@ class ClientHandle(threading.Thread):
                 msg = "Faulty Signature;errorCode: invalidSign"
             elif l_databaseQueryErrorCode == 5:
                 msg = "Error Importing User PK;errorCode: faultyPK"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
             msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
             self.clientSocket.send(msg)
@@ -283,6 +294,8 @@ class ClientHandle(threading.Thread):
                 msg = "Error Importing User PK;errorCode: faultyPK"
             elif l_databaseQueryErrorCode == 7:
                 msg = "Faulty Signature;errorCode: invalidSign"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
             msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
             self.clientSocket.send(msg)
@@ -290,40 +303,84 @@ class ClientHandle(threading.Thread):
 
         filesAvailable = False
 
-        addPublicFile = re.search("^addPublicFile;user: (.+);fileName: (.+);fileB64: (.+);signature: (.+)$",
+        addPublicFile = re.search("^addPublicFile;name: (.+);fileNameB64: (.+);fileB64: (.+);signatureB64: (.+)$",
                                   decryptedMessage)
 
         if addPublicFile and filesAvailable:
-            l_user = addPublicFile.group(1)
-            l_fileName = addPublicFile.group(2)
+            l_name = addPublicFile.group(1)
+            l_fileNameB64 = addPublicFile.group(2)
             l_fileB64 = addPublicFile.group(3)
             l_signatureB64 = addPublicFile.group(4)
 
-            l_databaseQueryErrorCode = self.databaseManager.addPublicFile(l_user, l_fileName, l_fileB64, l_signatureB64)
+            l_databaseQueryErrorCode = self.databaseManager.addPublicFile(l_name, l_fileNameB64, l_fileB64, l_signatureB64)
 
-        addHiddenFile = re.search("addHiddenFile;user: (.+);fileName: (.+);fileB64: (.+);signature: (.+)$",
+        addHiddenFile = re.search("^addHiddenFile;name: (.+);fileName: (.+);fileB64: (.+);signatureB64: (.+)$",
                                   decryptedMessage)
 
         if addHiddenFile and filesAvailable:
-            l_user = addHiddenFile.group(1)
+            l_name = addHiddenFile.group(1)
             l_fileName = addHiddenFile.group(2)
             l_fileB64 = addHiddenFile.group(3)
             l_signatureB64 = addHiddenFile.group(4)
 
-            l_databaseQueryErrorCode = self.databaseManager.addHiddenFile(l_user, l_fileName, l_fileB64, l_signatureB64)
+            l_databaseQueryErrorCode = self.databaseManager.addHiddenFile(l_name, l_fileName, l_fileB64, l_signatureB64)
 
-        addPrivateFile = re.search("addPrivateFile;user: (.+);fileName: (.+);fileB64: (.+);signature: (.+)$",
+        addPrivateFile = re.search("^addPrivateFile;name: (.+);fileName: (.+);fileB64: (.+);signatureB64: (.+)$",
                                    decryptedMessage)
 
         if addPrivateFile and filesAvailable:
-            l_user = addPrivateFile.group(1)
+            l_name = addPrivateFile.group(1)
             l_fileName = addPrivateFile.group(2)
             l_fileB64 = addPrivateFile.group(3)
             l_signatureB64 = addPrivateFile.group(4)
 
-            l_databaseQueryErrorCode = self.databaseManager.addPrivateFile(l_user, l_fileName, l_fileB64,
+            l_databaseQueryErrorCode = self.databaseManager.addPrivateFile(l_name, l_fileName, l_fileB64,
                                                                            l_signatureB64)
 
+        getPublicFileList = re.search("^getPublicFileList;name: (.+)$", decryptedMessage)
+
+        if getPublicFileList and filesAvailable:
+            l_name = getPublicFileList.group(1)
+
+            l_databaseQueryResult = self.databaseManager.getPublicFileList(l_name)
+            l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+        getHiddenFileList = re.search("^getHiddenFileList;name: (.+);signatureB64: (.+)$", decryptedMessage)
+
+        if getHiddenFileList and filesAvailable:
+            l_name = getHiddenFileList.group(1)
+            l_signatureB64 = getHiddenFileList.group(2)
+
+            l_databaseQueryResult = self.databaseManager.getHiddenFileList(l_name, l_signatureB64)
+            l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+        getPrivateFileList = re.search("^getPrivateFileList;name: (.+);signatureB64: (.+)$", decryptedMessage)
+
+        if getPrivateFileList and filesAvailable:
+            l_name = getPrivateFileList.group(1)
+            l_signatureB64 = getPrivateFileList.group(2)
+
+            l_databaseQueryResult = self.databaseManager.getPrivateFileList(l_name, l_signatureB64)
+            l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+        getFile = re.search("^getFile;name: (.+);id: (.+)$", decryptedMessage)
+
+        if getFile and filesAvailable:
+            l_name = getFile.group(1)
+            l_id = getFile.group(2)
+
+            l_databaseQueryResult = self.databaseManager.getFile(l_name, l_id)
+            l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+        getPrivateFile = re.search("^getPrivateFile;name: (.+);id: (.+);signatureB64: (.+)$", decryptedMessage)
+
+        if getPrivateFile and filesAvailable:
+            l_name = getPrivateFile.group(1)
+            l_id = getPrivateFile.group(2)
+            l_signatureB64 = getPrivateFile.group(3)
+
+            l_databaseQueryResult = self.databaseManager.getPrivateFile(l_name, l_id, l_signatureB64)
+            l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
 
         msg = "Invalid Request;errorCode: invalidReq"
@@ -335,7 +392,7 @@ class ClientHandle(threading.Thread):
     def encryptWithPadding(key, plaintext):
         # type: (str, str) -> tuple
         length = (16 - (len(plaintext) % 16)) + 16 * random.randint(0,14)
-        plaintextPadded = plaintext + ClientHandle.getRandString(length-1) + chr(length)
+        plaintextPadded = plaintext + utils.getRandString(length-1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
         ciphertext = base64.b64encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
@@ -350,14 +407,6 @@ class ClientHandle(threading.Thread):
         plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
-
-    @staticmethod
-    def getRandString(len):
-        # type: (int) -> str
-        returnString = ""
-        for x in range(0, len):
-            returnString += get_random_bytes(1)
-        return returnString
 
 # Code NOT USED
         #createChatReToSearchFor = "^createChat;creatorName: (.+);chatName: (.+);"

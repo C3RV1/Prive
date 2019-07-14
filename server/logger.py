@@ -1,5 +1,8 @@
 import threading
 import datetime
+from colorama import init, Fore, Back, Style
+
+init(convert=True)
 
 class Logger:
     def __init__(self, filename):
@@ -13,7 +16,12 @@ class Logger:
     def log(self, msg, printToScreen=True, debug=False):
         self.fileLock.acquire()
         if printToScreen or debug:
-            print msg
+            if debug:
+                print ""
+                print Fore.RED + " ***[DEBUG]*** " + msg
+                print ""
+            else:
+                print Fore.WHITE + msg
         self.fileHandler.write(msg + "\n")
         self.fileLock.release()
 

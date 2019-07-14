@@ -281,7 +281,7 @@ class PriveAPIInstance:
 
         textToSign = SHA256.new("delUser;name: " + self.loggedInUser)
         signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
-        message = "delUser;name: " + self.loggedInUser + ";sign: " + signature
+        message = "delUser;name: " + self.loggedInUser + ";signatureB64: " + signature
         if not self.__sendMsg(message) == 0:
             raise Exception("Error Communicating with Server (Error 0)")
 
