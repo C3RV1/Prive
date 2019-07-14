@@ -288,16 +288,43 @@ class ClientHandle(threading.Thread):
             self.clientSocket.send(msg)
             return False
 
-        addPublicFile = re.search("^addPublicFile;user: (.+);fileName: (.+);fileB64: (.+);signture: (.+)",
+        filesAvailable = False
+
+        addPublicFile = re.search("^addPublicFile;user: (.+);fileName: (.+);fileB64: (.+);signature: (.+)$",
                                   decryptedMessage)
 
-        if addPublicFile and False:
+        if addPublicFile and filesAvailable:
             l_user = addPublicFile.group(1)
             l_fileName = addPublicFile.group(2)
             l_fileB64 = addPublicFile.group(3)
             l_signatureB64 = addPublicFile.group(4)
 
             l_databaseQueryErrorCode = self.databaseManager.addPublicFile(l_user, l_fileName, l_fileB64, l_signatureB64)
+
+        addHiddenFile = re.search("addHiddenFile;user: (.+);fileName: (.+);fileB64: (.+);signature: (.+)$",
+                                  decryptedMessage)
+
+        if addHiddenFile and filesAvailable:
+            l_user = addHiddenFile.group(1)
+            l_fileName = addHiddenFile.group(2)
+            l_fileB64 = addHiddenFile.group(3)
+            l_signatureB64 = addHiddenFile.group(4)
+
+            l_databaseQueryErrorCode = self.databaseManager.addHiddenFile(l_user, l_fileName, l_fileB64, l_signatureB64)
+
+        addPrivateFile = re.search("addPrivateFile;user: (.+);fileName: (.+);fileB64: (.+);signature: (.+)$",
+                                   decryptedMessage)
+
+        if addPrivateFile and filesAvailable:
+            l_user = addPrivateFile.group(1)
+            l_fileName = addPrivateFile.group(2)
+            l_fileB64 = addPrivateFile.group(3)
+            l_signatureB64 = addPrivateFile.group(4)
+
+            l_databaseQueryErrorCode = self.databaseManager.addPrivateFile(l_user, l_fileName, l_fileB64,
+                                                                           l_signatureB64)
+
+
 
         msg = "Invalid Request;errorCode: invalidReq"
         msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"

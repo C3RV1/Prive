@@ -10,7 +10,7 @@ import logger
 import time
 import shutil
 import generateKeys
-import lineno
+import utils
 
 
 class DatabaseManager:
@@ -48,6 +48,7 @@ class DatabaseManager:
         self.logger.log("[DatabaseManager]: " + msg, printToScreen=printOnScreen, debug=debug)
 
     def newSessionKey(self, host, port, sessionKey):
+        #type: (str, int, str) -> bool
         self.databaseLock.acquire()
         try:
             return self.__newSessionKey(host, port, sessionKey)
@@ -69,6 +70,7 @@ class DatabaseManager:
         return True
 
     def deleteSessionKey(self, host, port):
+        #type: (str, int) -> None
         self.databaseLock.acquire()
         retValue = False
         try:
@@ -92,6 +94,7 @@ class DatabaseManager:
         self.databaseLock.release()
 
     def getSessionKey(self, host, port):
+        #type: (str, int) -> tuple
         self.databaseLock.acquire()
         retValue = ()
         try:
@@ -114,6 +117,7 @@ class DatabaseManager:
         return True, base64.b64decode(sessionKey)
 
     def newUser(self, name, pk, skAesB64, vtB64, vtAesB64):
+        #type: (str, str, str, str, str) -> int
         self.databaseLock.acquire()
         retValue = -1
         try:
@@ -178,6 +182,7 @@ class DatabaseManager:
         return 0
 
     def getVtAesB64(self, name):
+        #type: (str) -> tuple
         self.databaseLock.acquire()
         retValue = ()
         try:
@@ -207,6 +212,7 @@ class DatabaseManager:
         return 0, vtAes
 
     def checkVt(self, name, vtB64, ip, newVtSha, newVtEnc):
+        #type: (str, str, str, str, str) -> tuple
         self.databaseLock.acquire()
         retValue = ()
         try:
@@ -271,6 +277,7 @@ class DatabaseManager:
         return 1, 0
 
     def getSk_(self, name):
+        #type: (str) -> tuple
         self.databaseLock.acquire()
         retValue = ()
         try:
@@ -300,6 +307,7 @@ class DatabaseManager:
         return 0, sk
 
     def getPk(self, name):
+        #type: (str) -> tuple
         self.databaseLock.acquire()
         retValue = ()
         try:
@@ -329,6 +337,7 @@ class DatabaseManager:
         return 0, pk
 
     def delUser(self, name, signatureB64):
+        # type: (str, str) -> int
         self.databaseLock.acquire()
         retValue = -1
         try:
@@ -393,6 +402,7 @@ class DatabaseManager:
         return 4
 
     def updateKeys(self, name, signatureB64, newPKB64, newSKAesB64):
+        # type: (str, str, str, str) -> int
         self.databaseLock.acquire()
         retValue = -1
         try:
@@ -464,6 +474,8 @@ class DatabaseManager:
 
         return 7
 
+    # File secction
+
     def addPublicFile(self, user, fileName, fileB64, signatureB64):
         self.databaseLock.acquire()
         retValue = -1
@@ -478,6 +490,76 @@ class DatabaseManager:
     def __addPublicFile(self, user, fileName, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
         return 0
+
+    def addHiddenFile(self, user, fileName, fileB64, signatureB64):
+        self.databaseLock.acquire()
+        retValue = -1
+        try:
+            retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
+        except:
+            self.log("Error addPublicFile")
+        finally:
+            self.databaseLock.release()
+        return  retValue
+
+    def __addHiddenFile(self, user, fileName, fileB64, signatureB64):
+        #type: (str, str, str, str) -> int
+        return 0
+
+    def addPrivateFile(self, user, fileName, fileB64, signatureB64):
+        self.databaseLock.acquire()
+        retValue = -1
+        try:
+            retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
+        except:
+            self.log("Error addPublicFile")
+        finally:
+            self.databaseLock.release()
+        return  retValue
+
+    def __addPrivateFile(self, user, fileName, fileB64, signatureB64):
+        #type: (str, str, str, str) -> int
+        return 0
+
+    def getPublicFileList(self, user):
+        # type: (str) -> tuple
+        pass
+
+    def __getPublicFileList(self, user):
+        # type: (str) -> tuple
+        pass
+
+    def getHiddenFileList(self, user, signatureB64):
+        # type: (str, str) -> tuple
+        pass
+
+    def __getHiddenFileList(self, user, signatureB64):
+        # type: (str, str) -> tuple
+        pass
+
+    def getPrivateFileList(self, user, signatureB64):
+        # type: (str, str) -> tuple
+        pass
+
+    def __getPrivateFileList(self, user, signatureB64):
+        # type: (str, str) -> tuple
+        pass
+
+    def getFile(self, user, id):  # Works for Public & Hidden Files
+        # type: (str, str) -> tuple
+        pass
+
+    def __getFile(self, user, id):
+        # type: (str, str) -> tuple
+        pass
+
+    def getPrivateFile(self, user, id, signatureB64):
+        # type: (str, str, str) -> tuple
+        pass
+
+    def __getPrivateFile(self, user, id, signatureB64):
+        # type: (str, str, str) -> tuple
+        pass
 
     # Not Used
     """def __createChat(self, creatorName, chatName, keys, firstMessage, signature, messageValidationSha):

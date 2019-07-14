@@ -1,7 +1,7 @@
 import Crypto.PublicKey.RSA as RSA
 import databaseManager
 import os
-import lineno
+import utils
 import sys
 
 class GenerateKeys:
@@ -13,7 +13,7 @@ class GenerateKeys:
         #type: () -> None
 
         if not os.path.isdir(self.databaseDirectory):
-            print "Error in generateKeys.py, Line {0}: Database directory not found".format(lineno.lineno())
+            print "Error in generateKeys.py, Line {0}: Database directory not found".format(utils.lineno())
             print "Aborting operation"
             sys.exit(1)
 
