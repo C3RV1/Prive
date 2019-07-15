@@ -83,15 +83,12 @@ class DatabaseManager:
 
     def __deleteSessionKey(self, host, port):
         #type: (str, int) -> None
-        self.databaseLock.acquire()
         #fileToWrite = open(self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey", "w")
         #fileToWrite.write("None")
         filePath = self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey"
         if not os.path.isfile(filePath):
-            self.databaseLock.release()
             return
         os.remove(self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey")
-        self.databaseLock.release()
 
     def getSessionKey(self, host, port):
         #type: (str, int) -> tuple

@@ -449,6 +449,8 @@ class PriveAPIInstance:
         returnString = ""
         for x in range(0, len):
             returnString += get_random_bytes(1)
+        if "\x00" in returnString:
+            return PriveAPIInstance.getRandString(len)
         return returnString
 
     # Encrypt Using AES and Padding

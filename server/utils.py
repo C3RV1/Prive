@@ -17,4 +17,6 @@ def getRandString(len):
     returnString = ""
     for x in range(0, len):
         returnString += get_random_bytes(1)
+    if "\x00" in returnString:
+        return getRandString(len)
     return returnString
