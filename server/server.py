@@ -54,7 +54,7 @@ class Server:
 
     def log(self, msg, printOnScreen=True, debug=False):
         # type: (str, bool, bool) -> None
-        self.database.logger.log("[Server" + self.name + "] " + msg, printToScreen=printOnScreen, debug=debug)
+        self.database.logger.log("[Server " + self.name + "] " + msg, printToScreen=printOnScreen, debug=debug)
 
     def run(self):
         while self.running.returnRunning():

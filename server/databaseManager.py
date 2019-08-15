@@ -43,9 +43,9 @@ class DatabaseManager:
         self.databaseLock = threading.Lock()
         self.logger = logger.Logger(logFile)
 
-    def log(self, msg, printOnScreen=True, debug=False):
-        # type: (str, bool, bool) -> None
-        self.logger.log("[DatabaseManager]: " + msg, printToScreen=printOnScreen, debug=debug)
+    def log(self, msg, printOnScreen=True, debug=False, error=False):
+        # type: (str, bool, bool, bool) -> None
+        self.logger.log("[DatabaseManager]: " + msg, printToScreen=printOnScreen, debug=debug, error=error)
 
     def newSessionKey(self, host, port, sessionKey):
         #type: (str, int, str) -> bool
@@ -53,7 +53,7 @@ class DatabaseManager:
         try:
             return self.__newSessionKey(host, port, sessionKey)
         except:
-            self.log("Error newSessionKey", debug=True)
+            self.log("Error newSessionKey", debug=False, error=True)
             return False
         finally:
             self.databaseLock.release()
@@ -76,7 +76,7 @@ class DatabaseManager:
         try:
             retValue = self.__deleteSessionKey(host, port)
         except:
-            self.log("Error deleteSessionKey", debug=True)
+            self.log("Error deleteSessionKey", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -97,7 +97,7 @@ class DatabaseManager:
         try:
             retValue = self.__getSessionKey(host, port)
         except:
-            self.log("Error getSessionKey", debug=True)
+            self.log("Error getSessionKey", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -120,7 +120,7 @@ class DatabaseManager:
         try:
             retValue = self.__newUser(name, pk, skAesB64, vtB64, vtAesB64)
         except:
-            self.log("Error newUser", debug=True)
+            self.log("Error newUser", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -193,7 +193,7 @@ class DatabaseManager:
         try:
             retValue = self.__getVtAesB64(name)
         except:
-            self.log("Error getVtAesB64", debug=True)
+            self.log("Error getVtAesB64", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -223,7 +223,7 @@ class DatabaseManager:
         try:
             retValue = self.__checkVt(name, vtB64, ip, newVtSha, newVtEnc)
         except:
-            self.log("Error checkVt", debug=True)
+            self.log("Error checkVt", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -288,7 +288,7 @@ class DatabaseManager:
         try:
             retValue = self.__getSk_(name)
         except:
-            self.log("Error getSk_", debug=True)
+            self.log("Error getSk_", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -318,7 +318,7 @@ class DatabaseManager:
         try:
             retValue = self.__getPk(name)
         except:
-            self.log("Error getPk", debug=True)
+            self.log("Error getPk", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -348,7 +348,7 @@ class DatabaseManager:
         try:
             retValue = self.__delUser(name, signatureB64)
         except:
-            self.log("Error delUser", debug=True)
+            self.log("Error delUser", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -413,7 +413,7 @@ class DatabaseManager:
         try:
             retValue = self.__updateKeys(name, signatureB64, newPKB64, newSKAesB64)
         except:
-            self.log("Error updateKeys", debug=True)
+            self.log("Error updateKeys", error=True)
         finally:
             self.databaseLock.release()
         return retValue
@@ -487,7 +487,7 @@ class DatabaseManager:
         try:
             retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
         except:
-            self.log("Error addPublicFile", debug=True)
+            self.log("Error addPublicFile", error=True)
         finally:
             self.databaseLock.release()
         return  retValue
@@ -569,7 +569,7 @@ class DatabaseManager:
         try:
             retValue = self.__addHiddenFile(user, fileName, fileB64, signatureB64)
         except:
-            self.log("Error addHiddenFile", debug=True)
+            self.log("Error addHiddenFile", error=True)
         finally:
             self.databaseLock.release()
         return  retValue
@@ -584,7 +584,7 @@ class DatabaseManager:
         try:
             retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
         except:
-            self.log("Error addPrivateFile", debug=True)
+            self.log("Error addPrivateFile", error=True)
         finally:
             self.databaseLock.release()
         return  retValue

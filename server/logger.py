@@ -13,12 +13,17 @@ class Logger:
         self.fileHandler.write("\n[Started at " + now.strftime("%Y-%m-%d %H:%M") + "]\n")
         self.fileLock = threading.Lock()
 
-    def log(self, msg, printToScreen=True, debug=False):
+    def log(self, msg, printToScreen=True, debug=False, error=False):
+        #type: (str, bool, bool, bool)
         self.fileLock.acquire()
-        if printToScreen or debug:
+        if printToScreen or debug or error:
             if debug:
                 print ""
-                print Fore.RED + " ***[DEBUG]*** " + msg
+                print Fore.GREEN + " ***[DEBUG]*** " + msg
+                print ""
+            elif error:
+                print ""
+                print Fore.RED + " ***[ERROR]*** " + msg
                 print ""
             else:
                 print Fore.WHITE + msg
