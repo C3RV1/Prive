@@ -14,7 +14,7 @@ class Logger:
         self.fileLock = threading.Lock()
 
     def log(self, msg, printToScreen=True, debug=False, error=False):
-        #type: (str, bool, bool, bool)
+        #type: (str, bool, bool, bool) -> None
         self.fileLock.acquire()
         if printToScreen or debug or error:
             if debug:
@@ -27,7 +27,12 @@ class Logger:
                 print ""
             else:
                 print Fore.WHITE + msg
-        self.fileHandler.write(msg + "\n")
+        if debug:
+            self.fileHandler.write(" ***[DEBUG]*** " + msg + "\n")
+        elif error:
+            self.fileHandler.write(" ***[ERROR]*** " + msg + "\n")
+        else:
+            self.fileHandler.write(msg + "\n")
         self.fileLock.release()
 
     def clearLog(self):
