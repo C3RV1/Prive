@@ -15,6 +15,7 @@ class ConsoleForExit(threading.Thread):
         while True:
             command = raw_input("> ")
             if command == "quit":
+                print "Quitting..."
                 self.running = False
                 disconectSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 disconectSocket.connect((self.serverMaster.host, self.serverMaster.port))
@@ -22,6 +23,7 @@ class ConsoleForExit(threading.Thread):
                 disconectSocket.close()
                 break
             if command == "clearLog":
+                print "Clearing log..."
                 self.serverMaster.log("Clearing Log")
                 self.serverMaster.database.logger.clearLog()
 
@@ -32,12 +34,14 @@ class ConsoleForExit(threading.Thread):
 class Server:
 
     def __init__(self, host, port, name, maxCurrentUsers, databasePath, logFile, unacceptedNameCharacters,
-                 clientTimeout, keySize):
-        # type: (str, int, str, int, str, str, str, int, int) -> None
+                 clientTimeout, keySize, version):
+        # type: (str, int, str, int, str, str, str, int, int, str) -> None
         self.name = name
         self.host = host
         self.port = port
+        self.version = version
         print "Starting server: " + name
+        print "Server version: " + version
         self.listenSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listenSocket.bind((host, port))
         self.listenSocket.listen(maxCurrentUsers)

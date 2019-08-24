@@ -1,7 +1,7 @@
 
 
 class Config:
-    SERVER_NAME = "Prive"
+    SERVER_NAME = "PriveServer"
     HOST = "127.0.0.1"
     PORT = 4373
     MAX_CURRENT_USERS = 10
@@ -10,3 +10,4 @@ class Config:
     UNACCEPTED_NAME_CHARCTERS = "\r\n/\\\\:\"?*<>|."
     CLIENT_TIMEOUT = 10
     KEYSIZE = 4096
+    VERSION = "v0.0.2"
