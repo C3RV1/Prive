@@ -24,8 +24,8 @@ class Timeout(threading.Thread):
 
     def log(self, msg, printOnScreen=True, debug=False):
         # type: (str, bool, bool) -> None
-        self.databaseManager.logger.log("[ClientHandlerTimeout:" + self.clientAddr[0] + ":" + str(self.clientAddr[1]) +
-                                        "] " + msg, printToScreen=printOnScreen, debug=debug)
+        self.databaseManager.logger.log("ClientTimeout:" + self.clientAddr[0] + ":" + str(self.clientAddr[1]),
+                                        msg, printToScreen=printOnScreen, debug=debug)
 
     def run(self):
         while True and not self.timeoutList[1]:
@@ -74,7 +74,7 @@ class ClientHandle(threading.Thread):
                     self.log("Error Msg not String")
                 break"""
         self.databaseManager.deleteSessionKey(self.clientAddress[0], self.clientAddress[1])
-        self.log("Closing Client: " + str(self.clientAddress[0]) + " " + str(self.clientAddress[1]))
+        self.log("Closing")
         try:
             self.clientSocket.close()
         except Exception:
@@ -87,19 +87,19 @@ class ClientHandle(threading.Thread):
 
     def log(self, msg, printOnScreen=True, debug=False):
         # type: (str, bool, bool) -> None
-        self.databaseManager.logger.log("[ClientHandler:" + self.clientAddress[0] + ":" + str(self.clientAddress[1]) +
-                                        "] " + msg, printToScreen=printOnScreen, debug=debug)
+        self.databaseManager.logger.log("Client:" + self.clientAddress[0] + ":" + str(self.clientAddress[1]),
+                                        msg, printToScreen=printOnScreen, debug=debug)
         pass
 
     def handleMessage(self, data):
         self.timeoutList[0] = 0
         data = data[:-2]
-        self.log("Received from client " + self.clientAddress[0] + " " + str(self.clientAddress[1]) + " : " + repr(data))
         if re.search("^quit$", data):
             return True
         sessionKeyRe = re.search("^sessionkey: (.*)$", data)
         sessionKey = self.databaseManager.getSessionKey(self.clientAddress[0], self.clientAddress[1])
         if sessionKeyRe:
+            self.log("Received session key")
             if not sessionKey[0]:
                 validSEK = self.databaseManager.newSessionKey(self.clientAddress[0], self.clientAddress[1],
                                                                     sessionKeyRe.group(1))
@@ -119,7 +119,7 @@ class ClientHandle(threading.Thread):
         sessionKey = sessionKey[1]
 
         decryptedMessage = self.decryptWithPadding(sessionKey, data)[1]
-        self.log("Client Message Decrypted: " + decryptedMessage)
+        self.log("Received: " + decryptedMessage)
 
         if re.search("^quit$", decryptedMessage):
             return True

@@ -1,6 +1,7 @@
 import threading
 import datetime
 from colorama import init, Fore, Back, Style
+import loggerConfig
 
 init(convert=True)
 
@@ -13,8 +14,11 @@ class Logger:
         self.fileHandler.write("\n[Started at " + now.strftime("%Y-%m-%d %H:%M") + "]\n")
         self.fileLock = threading.Lock()
 
-    def log(self, msg, printToScreen=True, debug=False, error=False):
+    def log(self, name, message, printToScreen=True, debug=False, error=False):
         #type: (str, bool, bool, bool) -> None
+        #[ServerTest]                              
+        reload(loggerConfig)
+        msg = loggerConfig.nameAndMessage(name, message)
         self.fileLock.acquire()
         if printToScreen or debug or error:
             if debug:

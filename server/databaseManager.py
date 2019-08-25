@@ -45,7 +45,7 @@ class DatabaseManager:
 
     def log(self, msg, printOnScreen=True, debug=False, error=False):
         # type: (str, bool, bool, bool) -> None
-        self.logger.log("[DatabaseManager]: " + msg, printToScreen=printOnScreen, debug=debug, error=error)
+        self.logger.log("DatabaseManager", msg, printToScreen=printOnScreen, debug=debug, error=error)
 
     def newSessionKey(self, host, port, sessionKey):
         #type: (str, int, str) -> bool

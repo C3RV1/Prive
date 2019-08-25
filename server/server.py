@@ -2,6 +2,7 @@ import socket
 import threading
 import databaseManager
 import clientHandle
+import time
 
 class ConsoleForExit(threading.Thread):
 
@@ -13,9 +14,13 @@ class ConsoleForExit(threading.Thread):
 
     def run(self):
         while True:
-            command = raw_input("> ")
-            if command == "quit":
-                print "Quitting..."
+            try:
+                command = raw_input("> ")
+            except Exception as e:
+                print e
+                continue
+            if command == "exit":
+                self.serverMaster.log("Exiting")
                 self.running = False
                 disconectSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 disconectSocket.connect((self.serverMaster.host, self.serverMaster.port))
@@ -23,7 +28,6 @@ class ConsoleForExit(threading.Thread):
                 disconectSocket.close()
                 break
             if command == "clearLog":
-                print "Clearing log..."
                 self.serverMaster.log("Clearing Log")
                 self.serverMaster.database.logger.clearLog()
 
@@ -39,12 +43,17 @@ class Server:
         self.name = name
         self.host = host
         self.port = port
+        self.maxCurrentUsers = maxCurrentUsers
         self.version = version
-        print "Starting server: " + name
+        print "Starting up server: " + name
         print "Server version: " + version
+
+        # Master socket for connection accepting
         self.listenSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listenSocket.bind((host, port))
         self.listenSocket.listen(maxCurrentUsers)
+
+        # List of client threads
         self.clientThreads = []
         self.clientTimeout = clientTimeout
         try:
@@ -52,27 +61,35 @@ class Server:
         except Exception as e:
             print e.message
             return
+
+        # Command Console
         self.running = ConsoleForExit(self)
         self.running.start()
+        self.log("Startup done")
         self.run()
 
     def log(self, msg, printOnScreen=True, debug=False):
         # type: (str, bool, bool) -> None
-        self.database.logger.log("[Server " + self.name + "] " + msg, printToScreen=printOnScreen, debug=debug)
+        self.database.logger.log("Server " + self.name, msg, printToScreen=printOnScreen, debug=debug)
 
     def run(self):
         while self.running.returnRunning():
+            if len(self.clientThreads) >= self.maxCurrentUsers:
+                time.sleep(0.5)
+                continue
             clientSocket, clientAddress = self.listenSocket.accept()
             self.log("Client " + str(clientAddress[0]) + " " + str(clientAddress[1]) + " Connected")
             self.clientThreads.append(clientHandle.ClientHandle(clientSocket, clientAddress, self.database, self,
                                                                 self.clientTimeout))
             self.clientThreads[-1].start()
+            self.log("N of clients:" + str(len(self.clientThreads)))
 
         for thread in self.clientThreads:
             thread.join()
         self.listenSocket.close()
-        self.log("Exiting server: " + self.name)
+        self.log("Exiting")
 
     def deleteClientThread(self, clientThread):
         # type: (clientHandle.ClientHandle) -> None
         self.clientThreads.remove(clientThread)
+        self.log("N of clients:" + str(len(self.clientThreads)))
