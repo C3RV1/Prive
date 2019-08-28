@@ -15,7 +15,7 @@ import utils
 
 class DatabaseManager:
 
-    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize):
+    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize):
         #type: (str, str, str, int) -> None
         self.databaseDirectory = databaseDirectory
         self.unacceptedNameCharacters = unacceptedNameCharacters
@@ -42,6 +42,7 @@ class DatabaseManager:
 
         self.databaseLock = threading.Lock()
         self.logger = logger.Logger(logFile)
+        self.maxFileSize = maxFileSize
 
     def log(self, msg, printOnScreen=True, debug=False, error=False):
         # type: (str, bool, bool, bool) -> None
@@ -492,7 +493,7 @@ class DatabaseManager:
             self.databaseLock.release()
         return  retValue
 
-    def __addPublicFile(self, name, fileNameB64, fileB64, signatureB64):
+    def __addPublicFile(self, user, fileNameB64, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
@@ -503,8 +504,9 @@ class DatabaseManager:
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature,
         #              8 - Missing Public File List (PUFL))
+        #              9 - Exceeds max file size (4*ceil(bytes/3))
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
             return 1
 
         if not utils.isBase64(fileNameB64):
@@ -516,13 +518,16 @@ class DatabaseManager:
         if not utils.isBase64(signatureB64):
             return 4
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk"):
             return 5
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl"):
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl"):
             return 8
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "r")
+        if len(fileB64) > 4*ceil(self.maxFileSize/3.0):
+            return 9
+
+        pkFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
 
@@ -532,7 +537,7 @@ class DatabaseManager:
             return 6
 
         signatureToVerify = SHA256.new()
-        signatureToVerify.update("addPublicFile;name: " + name + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
+        signatureToVerify.update("addPublicFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
         signature = base64.b64decode(signatureB64)
 
         try:
@@ -547,15 +552,15 @@ class DatabaseManager:
 
             while True:
                 randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
-                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\" + randomIdB64 + ".fd"):
+                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd"):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            publicFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
+            publicFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
             publicFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             publicFileList.close()
 
-            fileFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
+            fileFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
             fileFile.write(fileB64)
             fileFile.close()
 
@@ -595,11 +600,33 @@ class DatabaseManager:
 
     def getPublicFileList(self, user):
         # type: (str) -> tuple
+        self.databaseLock.acquire()
+        retValue = [-1, ""]
+        try:
+            retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
+        except:
+            self.log("Error addPrivateFile", error=True)
+        finally:
+            self.databaseLock.release()
+        return  retValue
         pass
 
     def __getPublicFileList(self, user):
         # type: (str) -> tuple
-        pass
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Missing Public File List (PUFL))
+
+        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
+            return [1, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl"):
+            return [2, ""]
+
+        publicFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl", "r")  # Stands for Public File List (PUFL)
+        publicFileListContents = publicFileList.read()
+        publicFileList.close()
+        return [0, publicFileListContents]
 
     def getHiddenFileList(self, user, signatureB64):
         # type: (str, str) -> tuple
