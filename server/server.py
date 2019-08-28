@@ -38,7 +38,7 @@ class ConsoleForExit(threading.Thread):
 class Server:
 
     def __init__(self, host, port, name, maxCurrentUsers, databasePath, logFile, unacceptedNameCharacters,
-                 clientTimeout, keySize, version):
+                 clientTimeout, keySize, version, maxFileSize):
         # type: (str, int, str, int, str, str, str, int, int, str) -> None
         self.name = name
         self.host = host
@@ -57,7 +57,7 @@ class Server:
         self.clientThreads = []
         self.clientTimeout = clientTimeout
         try:
-            self.database = databaseManager.DatabaseManager(databasePath, logFile, unacceptedNameCharacters, keySize)
+            self.database = databaseManager.DatabaseManager(databasePath, logFile, unacceptedNameCharacters, keySize, maxFileSize)
         except Exception as e:
             print e.message
             return
