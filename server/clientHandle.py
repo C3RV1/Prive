@@ -12,8 +12,8 @@ import utils
 
 
 class Timeout(threading.Thread):
-    def __init__(self, sock, clientAddr, timeoutList, timeout, databaseManager):
-        # type: (socket.socket, tuple, list, int, databaseManager.DatabaseManager) -> None
+    def __init__(self, clientHandlerMaster, sock, clientAddr, timeoutList, timeout, databaseManager):
+        # type: (ClientHandle, socket.socket, tuple, list, int, databaseManager.DatabaseManager) -> None
         self.databaseManager = databaseManager
         self.clientAddr = clientAddr
         self.log("Starting Timeout Thread on Client " + clientAddr[0] + " " + str(clientAddr[1]))
@@ -21,6 +21,7 @@ class Timeout(threading.Thread):
         self.socket = sock
         self.timeoutList = timeoutList
         self.timeout = timeout
+        self.clientHandlerMaster = clientHandlerMaster
 
     def log(self, msg, printOnScreen=True, debug=False):
         # type: (str, bool, bool) -> None
@@ -32,6 +33,7 @@ class Timeout(threading.Thread):
             if self.timeoutList[0] > self.timeout:
                 self.log("Client " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout")
                 self.socket.close()
+                self.clientHandlerMaster.closeAll()
                 break
             time.sleep(1)
             self.timeoutList[0] += 1
@@ -48,7 +50,7 @@ class ClientHandle(threading.Thread):
         self.databaseManager = databaseManager
         self.serverMaster = serverMaster
         self.timeoutList = [0, False]  # Because all instances share the same object
-        self.timeOutController = Timeout(self.clientSocket, self.clientAddress, self.timeoutList, timeout, databaseManager)
+        self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, self.timeoutList, timeout, databaseManager)
         self.timeOutController.start()
 
     def run(self):
@@ -64,15 +66,13 @@ class ClientHandle(threading.Thread):
                 if self.handleMessage(data):
                     break
                 if not self.serverMaster.running.returnRunning():
-                    self.clientSocket.send("quit\r\n")
+                    self.send("quit")
                     break
             """except Exception as e:
-                self.log("Error Receiving Client: " + str(self.clientAddress[0]) + " " + str(self.clientAddress[1]))
-                if type(e.message) == str:
-                    self.log("Error Msg: " + e.message)
-                else:
-                    self.log("Error Msg not String")
-                break"""
+                self.log("Error:" + e, error=True)"""
+        self.closeAll()
+
+    def closeAll(self):
         self.databaseManager.deleteSessionKey(self.clientAddress[0], self.clientAddress[1])
         self.log("Closing")
         try:
@@ -85,10 +85,21 @@ class ClientHandle(threading.Thread):
         self.serverMaster.deleteClientThread(self)
         self.timeoutList[1] = True
 
-    def log(self, msg, printOnScreen=True, debug=False):
-        # type: (str, bool, bool) -> None
+    def log(self, msg, printOnScreen=True, debug=False, error=False, saveToFile=True):
+        # type: (str, bool, bool, bool, bool) -> None
         self.databaseManager.logger.log("Client:" + self.clientAddress[0] + ":" + str(self.clientAddress[1]),
-                                        msg, printToScreen=printOnScreen, debug=debug)
+                                        msg, printToScreen=printOnScreen, debug=debug, error=error, saveToFile=saveToFile)
+        pass
+
+    def send(self, msg, encrypted=False, key=""):
+        #type: (str, str, str) -> None
+        self.log("Sending [{}]".format(msg), printOnScreen=False)
+        self.log("Sending {}".format(msg.split(';')[0]), saveToFile=False)
+        if encrypted:
+            msg = self.encryptWithPadding(key, msg)[1] + "\r\n"
+        else:
+            msg += "\r\n"
+        self.clientSocket.send(msg)
         pass
 
     def handleMessage(self, data):
@@ -104,22 +115,28 @@ class ClientHandle(threading.Thread):
                 validSEK = self.databaseManager.newSessionKey(self.clientAddress[0], self.clientAddress[1],
                                                                     sessionKeyRe.group(1))
                 if not validSEK:
-                    self.clientSocket.send("Invalid Session Key;errorCode: invalid\r\n")
+                    self.send("Invalid Session Key;errorCode: invalid")
                 else:
-                    self.clientSocket.send("Session Key Updated;errorCode: successful\r\n")
+                    self.send("Session Key Updated;errorCode: successful")
                 return False
             else:
-                self.clientSocket.send("Already Session Key;errorCode: already\r\n")
+                self.send("Already Session Key;errorCode: already")
                 return False
 
         if not sessionKey[0]:
-            self.clientSocket.send("No Session Key\r\n")
+            self.send("No Session Key")
             return False
 
         sessionKey = sessionKey[1]
 
         decryptedMessage = self.decryptWithPadding(sessionKey, data)[1]
-        self.log("Received: " + decryptedMessage)
+        self.log("Received: " + decryptedMessage, printOnScreen=False)
+        showTxt = ""
+        for i in range(0, len(decryptedMessage)):
+            if decryptedMessage[i] == ';':
+                break
+            showTxt += decryptedMessage[i]
+        self.log("Received: " + showTxt, saveToFile=False)
 
         if re.search("^quit$", decryptedMessage):
             return True
@@ -152,8 +169,7 @@ class ClientHandle(threading.Thread):
                 msg = "Invalid Encrypted Validation Token Characters;errorCode: invalidVTEnc"
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
-            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-            self.clientSocket.send(msg)
+            self.send(msg, encrypted=True, key=sessionKey)
             return False
 
         getVtAesB64 = re.search("^getVtAesB64;name: (.+)$", decryptedMessage)
@@ -173,8 +189,7 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
-            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-            self.clientSocket.send(msg)
+            self.send(msg, encrypted=True, key=sessionKey)
             return False
 
         checkVT = re.search("^checkVT;name: (.+);vt: (.+);newVTSha: (.+);newVTEnc: (.+)$", decryptedMessage)
@@ -211,8 +226,7 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
-            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-            self.clientSocket.send(msg)
+            self.send(msg, encrypted=True, key=sessionKey)
             return False
 
         getPk = re.search("^getPK;name: (.+)$", decryptedMessage)
@@ -233,8 +247,7 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
-            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-            self.clientSocket.send(msg)
+            self.send(msg, encrypted=True, key=sessionKey)
             return False
 
         delUser = re.search("^delUser;name: (.+);signatureB64: (.+)$",decryptedMessage)
@@ -247,7 +260,7 @@ class ClientHandle(threading.Thread):
             msg = ""
 
             if l_databaseQueryErrorCode == 0:
-                msg = "User Deleted Successful;errorCode: successful"
+                msg = "User Deleted Successfully;errorCode: successful"
             elif l_databaseQueryErrorCode == 1:
                 msg = "User Doesn't Exist;errorCode: usrNotFound"
             elif l_databaseQueryErrorCode == 2:
@@ -261,8 +274,7 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
-            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-            self.clientSocket.send(msg)
+            self.send(msg, encrypted=True, key=sessionKey)
             return False
 
         updateKeys = re.search("^updateKeys;name: (.+);signatureB64: (.+);newPKB64: (.+);newSKAesB64: (.+)$",
@@ -279,7 +291,7 @@ class ClientHandle(threading.Thread):
             msg = ""
 
             if l_databaseQueryErrorCode == 0:
-                msg = "Keys Updated!;errorCode: successful"
+                msg = "Keys Updated;errorCode: successful"
             elif l_databaseQueryErrorCode == 1:
                 msg = "User Doesn't Exist;errorCode: usrNotFound"
             elif l_databaseQueryErrorCode == 2:
@@ -297,16 +309,13 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
-            msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-            self.clientSocket.send(msg)
+            self.send(msg, encrypted=True, key=sessionKey)
             return False
-
-        filesAvailable = False
 
         addPublicFile = re.search("^addPublicFile;name: (.+);fileNameB64: (.+);fileB64: (.+);signatureB64: (.+)$",
                                   decryptedMessage)
 
-        if addPublicFile and filesAvailable:
+        if addPublicFile and False:
             l_name = addPublicFile.group(1)
             l_fileNameB64 = addPublicFile.group(2)
             l_fileB64 = addPublicFile.group(3)
@@ -314,10 +323,34 @@ class ClientHandle(threading.Thread):
 
             l_databaseQueryErrorCode = self.databaseManager.addPublicFile(l_name, l_fileNameB64, l_fileB64, l_signatureB64)
 
+            if l_databaseQueryErrorCode == 0:
+                msg = "File Added;errorCode: successful"
+            elif l_databaseQueryErrorCode == 1:
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
+            elif l_databaseQueryErrorCode == 2:
+                msg = "Invalid Filename Characters;errorCode: invalidFilename"
+            elif l_databaseQueryErrorCode == 3:
+                msg = "Invalid File Characters;errorCode: invalidFileCharacters"
+            elif l_databaseQueryErrorCode == 4:
+                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
+            elif l_databaseQueryErrorCode == 5:
+                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
+            elif l_databaseQueryErrorCode == 6:
+                msg = "Error Importing User PK;errorCode: faultyPK"
+            elif l_databaseQueryErrorCode == 7:
+                msg = "Faulty Signature;errorCode: invalidSign"
+            elif l_databaseQueryErrorCode == 8:
+                msg = "Missing Public File List;errorCode: missingPUFL"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
+
         addHiddenFile = re.search("^addHiddenFile;name: (.+);fileName: (.+);fileB64: (.+);signatureB64: (.+)$",
                                   decryptedMessage)
 
-        if addHiddenFile and filesAvailable:
+        if addHiddenFile and False:
             l_name = addHiddenFile.group(1)
             l_fileName = addHiddenFile.group(2)
             l_fileB64 = addHiddenFile.group(3)
@@ -328,7 +361,7 @@ class ClientHandle(threading.Thread):
         addPrivateFile = re.search("^addPrivateFile;name: (.+);fileName: (.+);fileB64: (.+);signatureB64: (.+)$",
                                    decryptedMessage)
 
-        if addPrivateFile and filesAvailable:
+        if addPrivateFile and False:
             l_name = addPrivateFile.group(1)
             l_fileName = addPrivateFile.group(2)
             l_fileB64 = addPrivateFile.group(3)
@@ -339,7 +372,7 @@ class ClientHandle(threading.Thread):
 
         getPublicFileList = re.search("^getPublicFileList;name: (.+)$", decryptedMessage)
 
-        if getPublicFileList and filesAvailable:
+        if getPublicFileList and False:
             l_name = getPublicFileList.group(1)
 
             l_databaseQueryResult = self.databaseManager.getPublicFileList(l_name)
@@ -347,7 +380,7 @@ class ClientHandle(threading.Thread):
 
         getHiddenFileList = re.search("^getHiddenFileList;name: (.+);signatureB64: (.+)$", decryptedMessage)
 
-        if getHiddenFileList and filesAvailable:
+        if getHiddenFileList and False:
             l_name = getHiddenFileList.group(1)
             l_signatureB64 = getHiddenFileList.group(2)
 
@@ -356,7 +389,7 @@ class ClientHandle(threading.Thread):
 
         getPrivateFileList = re.search("^getPrivateFileList;name: (.+);signatureB64: (.+)$", decryptedMessage)
 
-        if getPrivateFileList and filesAvailable:
+        if getPrivateFileList and False:
             l_name = getPrivateFileList.group(1)
             l_signatureB64 = getPrivateFileList.group(2)
 
@@ -365,7 +398,7 @@ class ClientHandle(threading.Thread):
 
         getFile = re.search("^getFile;name: (.+);id: (.+)$", decryptedMessage)
 
-        if getFile and filesAvailable:
+        if getFile and False:
             l_name = getFile.group(1)
             l_id = getFile.group(2)
 
@@ -374,7 +407,7 @@ class ClientHandle(threading.Thread):
 
         getPrivateFile = re.search("^getPrivateFile;name: (.+);id: (.+);signatureB64: (.+)$", decryptedMessage)
 
-        if getPrivateFile and filesAvailable:
+        if getPrivateFile and False:
             l_name = getPrivateFile.group(1)
             l_id = getPrivateFile.group(2)
             l_signatureB64 = getPrivateFile.group(3)
