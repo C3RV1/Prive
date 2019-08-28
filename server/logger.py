@@ -14,8 +14,8 @@ class Logger:
         self.fileHandler.write("\n[Started at " + now.strftime("%Y-%m-%d %H:%M") + "]\n")
         self.fileLock = threading.Lock()
 
-    def log(self, name, message, printToScreen=True, debug=False, error=False):
-        #type: (str, bool, bool, bool) -> None
+    def log(self, name, message, printToScreen=True, debug=False, error=False, saveToFile=True):
+        #type: (str, bool, bool, bool, bool, bool) -> None
         #[ServerTest]                              
         reload(loggerConfig)
         msg = loggerConfig.nameAndMessage(name, message)
@@ -31,12 +31,13 @@ class Logger:
                 print ""
             else:
                 print Fore.WHITE + msg
-        if debug:
-            self.fileHandler.write(" ***[DEBUG]*** " + msg + "\n")
-        elif error:
-            self.fileHandler.write(" ***[ERROR]*** " + msg + "\n")
-        else:
-            self.fileHandler.write(msg + "\n")
+        if saveToFile:
+            if debug:
+                self.fileHandler.write(" ***[DEBUG]*** " + msg + "\n")
+            elif error:
+                self.fileHandler.write(" ***[ERROR]*** " + msg + "\n")
+            else:
+                self.fileHandler.write(msg + "\n")
         self.fileLock.release()
 
     def clearLog(self):
