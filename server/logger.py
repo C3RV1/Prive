@@ -15,8 +15,8 @@ class Logger:
         self.fileLock = threading.Lock()
 
     def log(self, name, message, printToScreen=True, debug=False, error=False, saveToFile=True):
-        #type: (str, bool, bool, bool, bool, bool) -> None
-        #[ServerTest]                              
+        # type: (str, str, bool, bool, bool, bool) -> None
+        # [ServerTest]
         reload(loggerConfig)
         msg = loggerConfig.nameAndMessage(name, message)
         self.fileLock.acquire()

@@ -11,12 +11,15 @@ import time
 import shutil
 import generateKeys
 import utils
+import math
+import threading
 
 
-class DatabaseManager:
+class DatabaseManager(threading.Thread):
 
     def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize):
-        #type: (str, str, str, int) -> None
+        #type: (str, str, str, int, int) -> None
+        threading.Thread.__init__(self)
         self.databaseDirectory = databaseDirectory
         self.unacceptedNameCharacters = unacceptedNameCharacters
 
@@ -44,9 +47,126 @@ class DatabaseManager:
         self.logger = logger.Logger(logFile)
         self.maxFileSize = maxFileSize
 
+        self.availableFunctions = ["newUser", "getVTAesB64", "checkVT", "getPK",
+                                   "delUser", "updateKeys", "addPublicFile",
+                                   "addHiddenFile", "addPrivateFile",
+                                   "getPublicFileList", "getHiddenFileList",
+                                   "getPrivateFileList", "getFile",
+                                   "getPrivateFile"]
+
+        self.functionParametersLength = {"newUser": 5,
+                                         "getVTAesB64": 1,
+                                         "checkVT": 5,
+                                         "getPK": 1,
+                                         "delUser": 2,
+                                         "updateKeys": 4,
+                                         "addPublicFile": 4,
+                                         "addHiddenFile": 4,
+                                         "addPrivateFile": 4,
+                                         "getPublicFileList": 1,
+                                         "getHiddenFileList": 2,
+                                         "getPrivateFileList": 3,
+                                         "getFile": 2,
+                                         "getPrivateFile": 3}
+
+        self.functionNameToFunc = {"newUser": self.newUser,
+                                   "getVTAesB64": self.getVtAesB64,
+                                   "checkVT": self.checkVt,
+                                   "getPK": self.getPk,
+                                   "delUser": self.delUser,
+                                   "updateKeys": self.updateKeys,
+                                   "addPublicFile": self.addPublicFile,
+                                   "addHiddenFile": self.addHiddenFile,
+                                   "addPrivateFile": self.addPrivateFile,
+                                   "getPublicFileList": self.getPublicFileList,
+                                   "getHiddenFileList": self.getHiddenFileList,
+                                   "getPrivateFileList": self.getPrivateFile,
+                                   "getFile": self.getFile,
+                                   "getPrivateFile": self.getPrivateFile}
+
+        self.databaseQueue = []
+        self.idQueueDictionary = {}
+        self.resultsDictionary = {}
+
     def log(self, msg, printOnScreen=True, debug=False, error=False):
         # type: (str, bool, bool, bool) -> None
         self.logger.log("DatabaseManager", msg, printToScreen=printOnScreen, debug=debug, error=error)
+
+    # Queue Functions
+
+    def run(self):
+        while True:
+            while len(self.databaseQueue) > 0:
+                self.databaseLock.acquire()
+                actionToDo = self.databaseQueue.pop(0)
+                self.doAction(actionToDo)
+                self.databaseLock.release()
+            time.sleep(0.05)
+
+    def doAction(self, id):
+        if id not in self.idQueueDictionary:
+            self.log("Id {} not in queue dictionary but in databaseQueue".format(id), error=True)
+            return
+        actionData = self.idQueueDictionary[id]
+        if "function" not in actionData:
+            self.log("Id {} in queue dictionary hasn't got a function key".format(id), error=True)
+            return
+        if "params" not in actionData:
+            self.log("Id {} in queue dictionary hasn't got a params key".format(id), error=True)
+            return
+
+        function = actionData["function"]
+        params = actionData["params"]
+
+        if function not in self.availableFunctions:
+            self.log("Id {} in queue dictionary function {} not found".format(id, function), error=True)
+            return
+
+        if function not in self.functionParametersLength:
+            self.log("Id {} in queue dictionary function {} not in functionParameters".format(id, function), error=True)
+            return
+
+        if not len(params) == self.functionParametersLength[function]:
+            self.log("Id {} in queue dictionary function {} wrong arguments length: {}".format(id, function,
+                                                                                               len(params)),
+                     error=True)
+            return
+
+        if function not in self.functionNameToFunc:
+            self.log("Id {} in queue dictionary function {} not in functionNameToFunc".format(id, function),
+                     error=True)
+            return
+
+        result = self.functionNameToFunc[function](*params)
+        self.resultsDictionary[id] = result
+
+    def addToQueue(self, function, params):
+        # type: (str, tuple) -> str
+        # self.log("Adding to queue {}".format(function), debug=True)
+        if function not in self.availableFunctions:
+            self.log("Function {} not in availableFunctions", error=True)
+            return ""
+        while True:
+            newId = base64.b64encode(utils.get_random_bytes(48))
+            if newId not in self.databaseQueue:
+                break
+        self.databaseLock.acquire()
+        self.databaseQueue.append(newId)
+        self.idQueueDictionary[newId] = {"function": function, "params": params}
+        self.databaseLock.release()
+        return newId
+
+    def executeFunction(self, function, params):
+        id = self.addToQueue(function, params)
+        if id == "":
+            return -1
+        while id not in self.resultsDictionary:
+            time.sleep(0.02)
+        result = self.resultsDictionary[id]
+        del self.resultsDictionary[id]
+        return result
+
+    # Prive Methods
 
     def newSessionKey(self, host, port, sessionKey):
         #type: (str, int, str) -> bool
@@ -116,14 +236,11 @@ class DatabaseManager:
 
     def newUser(self, name, pk, skAesB64, vtB64, vtAesB64):
         #type: (str, str, str, str, str) -> int
-        self.databaseLock.acquire()
         retValue = -1
         try:
             retValue = self.__newUser(name, pk, skAesB64, vtB64, vtAesB64)
         except:
             self.log("Error newUser", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
 
     def __newUser(self, name, pk, skAesB64, vtB64, vtAesB64):
@@ -524,7 +641,7 @@ class DatabaseManager:
         if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl"):
             return 8
 
-        if len(fileB64) > 4*ceil(self.maxFileSize/3.0):
+        if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
             return 9
 
         pkFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk", "r")
@@ -599,20 +716,20 @@ class DatabaseManager:
         return 0
 
     def getPublicFileList(self, user):
-        # type: (str) -> tuple
+        # type: (str) -> list
         self.databaseLock.acquire()
         retValue = [-1, ""]
         try:
-            retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
+            retValue = self.__getPublicFileList(user)
         except:
             self.log("Error addPrivateFile", error=True)
         finally:
             self.databaseLock.release()
-        return  retValue
+        return retValue
         pass
 
     def __getPublicFileList(self, user):
-        # type: (str) -> tuple
+        # type: (str) -> list
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Missing Public File List (PUFL))
@@ -620,10 +737,10 @@ class DatabaseManager:
         if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
             return [1, ""]
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl"):
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl"):
             return [2, ""]
 
-        publicFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl", "r")  # Stands for Public File List (PUFL)
+        publicFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl", "r")  # Stands for Public File List (PUFL)
         publicFileListContents = publicFileList.read()
         publicFileList.close()
         return [0, publicFileListContents]

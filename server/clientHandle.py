@@ -92,7 +92,7 @@ class ClientHandle(threading.Thread):
         pass
 
     def send(self, msg, encrypted=False, key=""):
-        #type: (str, str, str) -> None
+        #type: (str, bool, str) -> None
         self.log("Sending [{}]".format(msg), printOnScreen=False)
         self.log("Sending {}".format(msg.split(';')[0]), saveToFile=False)
         if encrypted:
@@ -152,7 +152,14 @@ class ClientHandle(threading.Thread):
             l_skAesB64 = newUser.group(3)
             l_vtShaB64 = newUser.group(4)
             l_vtAesB64 = newUser.group(5)
-            l_databaseQueryErrorCode = self.databaseManager.newUser(l_name, l_pkB64, l_skAesB64, l_vtShaB64, l_vtAesB64)
+
+            # l_databaseQueryErrorCode = self.databaseManager.newUser(l_name, l_pkB64, l_skAesB64, l_vtShaB64, l_vtAesB64)
+            l_databaseQueryErrorCode = self.databaseManager.executeFunction("newUser", (l_name,
+                                                                                        l_pkB64,
+                                                                                        l_skAesB64,
+                                                                                        l_vtShaB64,
+                                                                                        l_vtAesB64))
+
             if l_databaseQueryErrorCode == 0:
                 msg = "New User Registered!;errorCode: successful"
             elif l_databaseQueryErrorCode == 1:
@@ -323,6 +330,8 @@ class ClientHandle(threading.Thread):
 
             l_databaseQueryErrorCode = self.databaseManager.addPublicFile(l_name, l_fileNameB64, l_fileB64, l_signatureB64)
 
+            msg = ""
+
             if l_databaseQueryErrorCode == 0:
                 msg = "File Added;errorCode: successful"
             elif l_databaseQueryErrorCode == 1:
@@ -341,6 +350,8 @@ class ClientHandle(threading.Thread):
                 msg = "Faulty Signature;errorCode: invalidSign"
             elif l_databaseQueryErrorCode == 8:
                 msg = "Missing Public File List;errorCode: missingPUFL"
+            elif l_databaseQueryErrorCode == 9:
+                msg = "File exceeds max file size;errorCode: fileTooBig"
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 

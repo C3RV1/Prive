@@ -39,7 +39,7 @@ class Server:
 
     def __init__(self, host, port, name, maxCurrentUsers, databasePath, logFile, unacceptedNameCharacters,
                  clientTimeout, keySize, version, maxFileSize):
-        # type: (str, int, str, int, str, str, str, int, int, str) -> None
+        # type: (str, int, str, int, str, str, str, int, int, str, int) -> None
         self.name = name
         self.host = host
         self.port = port
@@ -62,6 +62,8 @@ class Server:
             print e.message
             return
 
+        self.database.start()
+
         # Command Console
         self.running = ConsoleForExit(self)
         self.running.start()
@@ -70,7 +72,7 @@ class Server:
 
     def log(self, msg, printOnScreen=True, debug=False):
         # type: (str, bool, bool) -> None
-        self.database.logger.log("Server " + self.name, msg, printToScreen=printOnScreen, debug=debug)
+        self.database.logger.log("Server " + self.name + " " + self.version, msg, printToScreen=printOnScreen, debug=debug)
 
     def run(self):
         while self.running.returnRunning():
