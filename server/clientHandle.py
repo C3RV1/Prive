@@ -183,7 +183,10 @@ class ClientHandle(threading.Thread):
 
         if getVtAesB64:
             l_name = getVtAesB64.group(1)
-            l_databaseQueryResult = self.databaseManager.getVtAesB64(l_name)
+            # l_databaseQueryResult = self.databaseManager.getVtAesB64(l_name)
+
+            l_databaseQueryResult = self.databaseManager.executeFunction("getVTAesB64", (l_name,))
+
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
             msg = ""
 
@@ -206,13 +209,16 @@ class ClientHandle(threading.Thread):
             l_vtB64 = checkVT.group(2)
             l_newVTSha = checkVT.group(3)
             l_newVTEnc = checkVT.group(4)
-            l_databaseQueryResult = self.databaseManager.checkVt(l_name, l_vtB64, self.clientAddress[0],
-                                                                 l_newVTSha, l_newVTEnc)
+
+            l_databaseQueryResult = self.databaseManager.executeFunction("checkVT", (l_name, l_vtB64,
+                                                                                     self.clientAddress[0],
+                                                                                     l_newVTSha, l_newVTEnc))
+
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
             msg = ""
 
             if l_databaseQueryErrorCode == 0:
-                l_skAesB64 = self.databaseManager.getSk_(l_name)
+                l_skAesB64 = self.databaseManager.executeFunction("getSK", (l_name,))
                 l_skAesB64ErrorCode = l_skAesB64[0]
                 if l_skAesB64ErrorCode == 0:
                     msg = "VT Correct!;sk: " + l_skAesB64[1] + ";errorCode: successful"
@@ -240,7 +246,9 @@ class ClientHandle(threading.Thread):
 
         if getPk:
             l_name = getPk.group(1)
-            l_databaseQueryResult = self.databaseManager.getPk(l_name)
+
+            l_databaseQueryResult = self.databaseManager.executeFunction("getPK", (l_name,))
+
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
             msg = ""
@@ -262,7 +270,8 @@ class ClientHandle(threading.Thread):
         if delUser:
             l_name = delUser.group(1)
             l_signatureB64 = delUser.group(2)
-            l_databaseQueryErrorCode = self.databaseManager.delUser(l_name, l_signatureB64)
+
+            l_databaseQueryErrorCode = self.databaseManager.executeFunction("delUser", (l_name, l_signatureB64))
 
             msg = ""
 
@@ -293,7 +302,10 @@ class ClientHandle(threading.Thread):
             l_newPK = updateKeys.group(3)
             l_newSKAesB64 = updateKeys.group(4)
 
-            l_databaseQueryErrorCode = self.databaseManager.updateKeys(l_name, l_signatureB64, l_newPK, l_newSKAesB64)
+            l_databaseQueryErrorCode = self.databaseManager.executeFunction("updateKeys", (l_name,
+                                                                                           l_signatureB64,
+                                                                                           l_newPK,
+                                                                                           l_newSKAesB64))
 
             msg = ""
 
@@ -328,7 +340,9 @@ class ClientHandle(threading.Thread):
             l_fileB64 = addPublicFile.group(3)
             l_signatureB64 = addPublicFile.group(4)
 
-            l_databaseQueryErrorCode = self.databaseManager.addPublicFile(l_name, l_fileNameB64, l_fileB64, l_signatureB64)
+            l_databaseQueryErrorCode = self.databaseManager.executeFunction("addPublicFile", (l_name, l_fileNameB64,
+                                                                                              l_fileB64,
+                                                                                              l_signatureB64))
 
             msg = ""
 
@@ -351,7 +365,8 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == 8:
                 msg = "Missing Public File List;errorCode: missingPUFL"
             elif l_databaseQueryErrorCode == 9:
-                msg = "File exceeds max file size;errorCode: fileTooBig"
+                msg = "File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
+                    self.databaseManager.maxFileSize)
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
@@ -386,8 +401,22 @@ class ClientHandle(threading.Thread):
         if getPublicFileList and False:
             l_name = getPublicFileList.group(1)
 
-            l_databaseQueryResult = self.databaseManager.getPublicFileList(l_name)
+            l_databaseQueryResult = self.databaseManager.executeFunction(getPublicFileList, (l_name,))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+            msg = ""
+
+            if l_databaseQueryErrorCode == 0:
+                msg = "Returning PUFL;pufl: " + l_databaseQueryResult[1] + ";errorCode: successful"
+            elif l_databaseQueryErrorCode == 1:
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
+            elif l_databaseQueryErrorCode == 2:
+                msg = "Missing Public File List;errorCode: missingPUFL"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
 
         getHiddenFileList = re.search("^getHiddenFileList;name: (.+);signatureB64: (.+)$", decryptedMessage)
 

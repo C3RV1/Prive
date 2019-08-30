@@ -57,16 +57,16 @@ class Server:
         self.clientThreads = []
         self.clientTimeout = clientTimeout
         try:
-            self.database = databaseManager.DatabaseManager(databasePath, logFile, unacceptedNameCharacters, keySize, maxFileSize)
+            self.database = databaseManager.DatabaseManager(databasePath, logFile, unacceptedNameCharacters, keySize,
+                                                            maxFileSize, self)
         except Exception as e:
-            print e.message
+            print e
             return
-
-        self.database.start()
 
         # Command Console
         self.running = ConsoleForExit(self)
         self.running.start()
+        self.database.start()
         self.log("Startup done")
         self.run()
 

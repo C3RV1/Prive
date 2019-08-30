@@ -3,7 +3,6 @@ from Crypto.Hash import SHA256
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import PKCS1_v1_5 as PKCS1_v1_5_Sig
 import base64
-import threading
 import os
 import re
 import logger
@@ -13,12 +12,13 @@ import generateKeys
 import utils
 import math
 import threading
+import server
 
 
 class DatabaseManager(threading.Thread):
 
-    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize):
-        #type: (str, str, str, int, int) -> None
+    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize, serverMaster):
+        #type: (str, str, str, int, int, server.Server) -> None
         threading.Thread.__init__(self)
         self.databaseDirectory = databaseDirectory
         self.unacceptedNameCharacters = unacceptedNameCharacters
@@ -46,17 +46,19 @@ class DatabaseManager(threading.Thread):
         self.databaseLock = threading.Lock()
         self.logger = logger.Logger(logFile)
         self.maxFileSize = maxFileSize
+        self.serverMaster = serverMaster
 
-        self.availableFunctions = ["newUser", "getVTAesB64", "checkVT", "getPK",
+        self.availableFunctions = ["newUser", "getVTAesB64", "checkVT", "getSK", "getPK",
                                    "delUser", "updateKeys", "addPublicFile",
                                    "addHiddenFile", "addPrivateFile",
                                    "getPublicFileList", "getHiddenFileList",
                                    "getPrivateFileList", "getFile",
-                                   "getPrivateFile"]
+                                   "getPrivateFile", "deleteFile"]
 
         self.functionParametersLength = {"newUser": 5,
                                          "getVTAesB64": 1,
                                          "checkVT": 5,
+                                         "getSK": 1,
                                          "getPK": 1,
                                          "delUser": 2,
                                          "updateKeys": 4,
@@ -67,11 +69,13 @@ class DatabaseManager(threading.Thread):
                                          "getHiddenFileList": 2,
                                          "getPrivateFileList": 3,
                                          "getFile": 2,
-                                         "getPrivateFile": 3}
+                                         "getPrivateFile": 3,
+                                         "deleteFile": 3}
 
         self.functionNameToFunc = {"newUser": self.newUser,
                                    "getVTAesB64": self.getVtAesB64,
                                    "checkVT": self.checkVt,
+                                   "getSK": self.getSk_,
                                    "getPK": self.getPk,
                                    "delUser": self.delUser,
                                    "updateKeys": self.updateKeys,
@@ -82,7 +86,8 @@ class DatabaseManager(threading.Thread):
                                    "getHiddenFileList": self.getHiddenFileList,
                                    "getPrivateFileList": self.getPrivateFile,
                                    "getFile": self.getFile,
-                                   "getPrivateFile": self.getPrivateFile}
+                                   "getPrivateFile": self.getPrivateFile,
+                                   "deleteFile": self.deleteFile}
 
         self.databaseQueue = []
         self.idQueueDictionary = {}
@@ -95,7 +100,7 @@ class DatabaseManager(threading.Thread):
     # Queue Functions
 
     def run(self):
-        while True:
+        while self.serverMaster.running.returnRunning():
             while len(self.databaseQueue) > 0:
                 self.databaseLock.acquire()
                 actionToDo = self.databaseQueue.pop(0)
@@ -296,8 +301,11 @@ class DatabaseManager(threading.Thread):
 
         os.mkdir(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs")
 
-        publicFileList = open(self.databaseDirectory+ "\\Profiles\\" + name + "\\publicFileList.pufl", "w")
+        publicFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl", "w")
         publicFileList.close()
+
+        hiddenFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\hiddenFileList.hfl", "w")
+        hiddenFileList.close()
 
         #chatsFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\chats.chts", "w")
         #chatsFile.close()
@@ -306,14 +314,11 @@ class DatabaseManager(threading.Thread):
 
     def getVtAesB64(self, name):
         #type: (str) -> tuple
-        self.databaseLock.acquire()
         retValue = (-1, "")
         try:
             retValue = self.__getVtAesB64(name)
         except:
             self.log("Error getVtAesB64", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
 
     def __getVtAesB64(self, name):
@@ -336,14 +341,11 @@ class DatabaseManager(threading.Thread):
 
     def checkVt(self, name, vtB64, ip, newVtSha, newVtEnc):
         #type: (str, str, str, str, str) -> tuple
-        self.databaseLock.acquire()
         retValue = (-1, "")
         try:
             retValue = self.__checkVt(name, vtB64, ip, newVtSha, newVtEnc)
         except:
             self.log("Error checkVt", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
 
     def __checkVt(self, name, vtB64, ip, newVTSha, newVTEnc):
@@ -401,14 +403,11 @@ class DatabaseManager(threading.Thread):
 
     def getSk_(self, name):
         #type: (str) -> tuple
-        self.databaseLock.acquire()
         retValue = (-1, "")
         try:
             retValue = self.__getSk_(name)
         except:
             self.log("Error getSk_", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
 
     def __getSk_(self, name):
@@ -431,14 +430,11 @@ class DatabaseManager(threading.Thread):
 
     def getPk(self, name):
         #type: (str) -> tuple
-        self.databaseLock.acquire()
         retValue = (-1, "")
         try:
             retValue = self.__getPk(name)
         except:
             self.log("Error getPk", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
 
     def __getPk(self, name):
@@ -461,14 +457,11 @@ class DatabaseManager(threading.Thread):
 
     def delUser(self, name, signatureB64):
         # type: (str, str) -> int
-        self.databaseLock.acquire()
         retValue = -1
         try:
             retValue = self.__delUser(name, signatureB64)
         except:
             self.log("Error delUser", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
 
     def __delUser(self, name, signatureB64):
@@ -526,14 +519,11 @@ class DatabaseManager(threading.Thread):
 
     def updateKeys(self, name, signatureB64, newPKB64, newSKAesB64):
         # type: (str, str, str, str) -> int
-        self.databaseLock.acquire()
         retValue = -1
         try:
             retValue = self.__updateKeys(name, signatureB64, newPKB64, newSKAesB64)
         except:
             self.log("Error updateKeys", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
 
     def __updateKeys(self, name, signatureB64, newPKB64, newSKAesB64):
@@ -600,14 +590,11 @@ class DatabaseManager(threading.Thread):
     # File secction
 
     def addPublicFile(self, user, fileNameB64, fileB64, signatureB64):
-        self.databaseLock.acquire()
         retValue = -1
         try:
             retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
         except:
             self.log("Error addPublicFile", error=True)
-        finally:
-            self.databaseLock.release()
         return  retValue
 
     def __addPublicFile(self, user, fileNameB64, fileB64, signatureB64):
@@ -685,46 +672,184 @@ class DatabaseManager(threading.Thread):
 
         return 7
 
-    def addHiddenFile(self, user, fileName, fileB64, signatureB64):
-        self.databaseLock.acquire()
+    def addHiddenFile(self, user, fileNameB64, fileB64, signatureB64):
         retValue = -1
         try:
-            retValue = self.__addHiddenFile(user, fileName, fileB64, signatureB64)
+            retValue = self.__addHiddenFile(user, fileNameB64, fileB64, signatureB64)
         except:
             self.log("Error addHiddenFile", error=True)
-        finally:
-            self.databaseLock.release()
         return  retValue
 
-    def __addHiddenFile(self, user, fileName, fileB64, signatureB64):
+    def __addHiddenFile(self, user, fileNameB64, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
-        return 0
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Invalid FileNameB64 Characters,
+        #              3 - Invalid FileB64 Characters
+        #              4 - Invalid Signature Characters,
+        #              5 - Strange Error Where User Doesn't have PK,
+        #              6 - Error Importing User PK,
+        #              7 - Faulty Signature,
+        #              8 - Missing Hidden File List (HFL))
+        #              9 - Exceeds max file size (4*ceil(bytes/3))
 
-    def addPrivateFile(self, user, fileName, fileB64, signatureB64):
-        self.databaseLock.acquire()
+        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
+            return 1
+
+        if not utils.isBase64(fileNameB64):
+            return 2
+
+        if not utils.isBase64(fileB64):
+            return 3
+
+        if not utils.isBase64(signatureB64):
+            return 4
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk"):
+            return 5
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\hiddenFileList.hfl"):
+            return 8
+
+        if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
+            return 9
+
+        pkFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            return 6
+
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update("addHiddenFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
+        signature = base64.b64decode(signatureB64)
+
+        try:
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
+
+        if validSignature is True:
+
+            randomIdB64 = ""
+
+            while True:
+                randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
+                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd"):
+                    break
+                self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
+
+            hiddenFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\hiddenFileList.hfl",
+                                  "a")  # Stands for Hidden File List (HFL)
+            hiddenFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            hiddenFileList.close()
+
+            fileFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd",
+                            "w")  #Stands for File Data (FD). Also fileFile is funny.
+            fileFile.write(fileB64)
+            fileFile.close()
+
+            return 0
+
+        return 7
+
+    def addPrivateFile(self, user, fileNameB64, fileB64, signatureB64):
         retValue = -1
         try:
-            retValue = self.__addPublicFile(user, fileName, fileB64, signatureB64)
+            retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
         except:
             self.log("Error addPrivateFile", error=True)
-        finally:
-            self.databaseLock.release()
         return  retValue
 
-    def __addPrivateFile(self, user, fileName, fileB64, signatureB64):
+    def __addPrivateFile(self, user, fileNameB64, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
-        return 0
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Invalid FileNameB64 Characters,
+        #              3 - Invalid FileB64 Characters
+        #              4 - Invalid Signature Characters,
+        #              5 - Strange Error Where User Doesn't have PK,
+        #              6 - Error Importing User PK,
+        #              7 - Faulty Signature,
+        #              8 - Missing Private File List (PRFL))
+        #              9 - Exceeds max file size (4*ceil(bytes/3))
+
+        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
+            return 1
+
+        if not utils.isBase64(fileNameB64):
+            return 2
+
+        if not utils.isBase64(fileB64):
+            return 3
+
+        if not utils.isBase64(signatureB64):
+            return 4
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk"):
+            return 5
+
+        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\privateFileList.prfl"):
+            return 8
+
+        if len(fileB64) > 4 * math.ceil(self.maxFileSize / 3.0):
+            return 9
+
+        pkFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            return 6
+
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update(
+            "addPrivateFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
+        signature = base64.b64decode(signatureB64)
+
+        try:
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
+
+        if validSignature is True:
+
+            randomIdB64 = ""
+
+            while True:
+                randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
+                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd"):
+                    break
+                self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
+
+            privateFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\privateFileList.prfl",
+                                   "a")  # Stands for Hidden File List (HFL)
+            privateFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            privateFileList.close()
+
+            fileFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd",
+                            "w")  # Stands for File Data (FD). Also fileFile is funny.
+            fileFile.write(fileB64)
+            fileFile.close()
+
+            return 0
+
+        return 7
 
     def getPublicFileList(self, user):
         # type: (str) -> list
-        self.databaseLock.acquire()
         retValue = [-1, ""]
         try:
             retValue = self.__getPublicFileList(user)
         except:
             self.log("Error addPrivateFile", error=True)
-        finally:
-            self.databaseLock.release()
         return retValue
         pass
 
@@ -775,6 +900,12 @@ class DatabaseManager(threading.Thread):
 
     def __getPrivateFile(self, user, id, signatureB64):
         # type: (str, str, str) -> tuple
+        pass
+
+    def deleteFile(self, user, id, signatureB64):
+        pass
+
+    def __deleteFile(self, user, id, signatureB64):
         pass
 
     # Not Used
