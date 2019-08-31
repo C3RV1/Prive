@@ -1,5 +1,5 @@
 # Prive
-Online service where you can save your filed without risks.
+Online service where you can save your files without risks.
 
 # How to run locally
 
