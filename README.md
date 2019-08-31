@@ -1,17 +1,17 @@
 # Prive
-Online service where you can save your rsa keys without risks.
+Online service where you can save your filed without risks.
 
 # How to run locally
 
 **Note: Prive must be run using Python 2.7**
 
-First of all, download the source code from a stable release, stable pre-release or stable nighty from the Releases section and extract it. You should not download it from the master branch.
+First of all, download the source code from a stable release, stable pre-release or stable nighty from the Releases section and extract it. You should not download it from the master branch as it might be a work-in-progress with bugs, unfinished things or not running at all.
 
 Next, you may run `python setup.py install` to install `PriveAPI` and `pycryptodome`. When a new PriveAPI version gets released, it will be in the **Release Notes** of the release.
 
 ## To start the server
 
-To start the server run `python init.py` in the `server` folder. You may want to tweak and play around with the values in `config.py` to change the behaviour of the server. The first time you start the server it will create a rsa key pair and store the public key and the private key in `<DatabasePath>/publicKey.pk` and `<DatabasePath>/privateKey.skm`. `<DatabasePath>` may be changed in `config.py` to any other directory.
+To start the server run `python init.py` in the `server` folder. You may want to tweak and play around with the values in `config.py` to change the behaviour of the server. The first time you start the server it will generate an rsa key pair and store the public key and the private key in `<DatabasePath>/publicKey.pk` and `<DatabasePath>/privateKey.skm` respectively. `<DatabasePath>` may be changed in `config.py` to any other directory.
 
 ## To test it
 
