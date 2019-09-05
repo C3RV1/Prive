@@ -39,6 +39,7 @@ class DatabaseManager(threading.Thread):
             print "Private key not found"
             print "Creating private key"
             genKeyObj = generateKeys.GenerateKeys(self.databaseDirectory, keySize)
+            genKeyObj.generate()
 
         privateKeyFile = open(privateKeyPath, "r")
         privateKeyStr = privateKeyFile.read()
