@@ -14,6 +14,7 @@ import math
 import threading
 import server
 
+# ALL file management is done in this file and in generateKeys.py
 
 class DatabaseManager(threading.Thread):
 
@@ -25,14 +26,14 @@ class DatabaseManager(threading.Thread):
 
         if not os.path.isdir(self.databaseDirectory):
             os.mkdir(self.databaseDirectory)
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles"):
-            os.mkdir(self.databaseDirectory + "\\Profiles")
-        if not os.path.isdir(self.databaseDirectory + "\\SessionKeys"):
-            os.mkdir(self.databaseDirectory + "\\SessionKeys")
+        if not os.path.isdir(self.databaseDirectory + "/Profiles"):
+            os.mkdir(self.databaseDirectory + "/Profiles")
+        if not os.path.isdir(self.databaseDirectory + "/SessionKeys"):
+            os.mkdir(self.databaseDirectory + "/SessionKeys")
         #if not os.path.isdir(self.databaseDirectory + "\\Chats"):
         #    os.mkdir(self.databaseDirectory + "\\Chats")
 
-        privateKeyPath = self.databaseDirectory + "\\privateKey.skm"  # Private Key Master
+        privateKeyPath = self.databaseDirectory + "/privateKey.skm"  # Private Key Master
 
         if not os.path.isfile(privateKeyPath):
             print "Private key not found"
@@ -191,7 +192,7 @@ class DatabaseManager(threading.Thread):
         if len(sessionKeyDecrypted) != 16 and len(sessionKeyDecrypted) != 32 and len(sessionKeyDecrypted) != 24:
             return False
         sessionKeyDecryptedB64 = base64.b64encode(sessionKeyDecrypted)
-        fileToWrite = open(self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey", "w")
+        fileToWrite = open(self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey", "w")
         fileToWrite.write(sessionKeyDecryptedB64)
         return True
 
@@ -211,10 +212,10 @@ class DatabaseManager(threading.Thread):
         #type: (str, int) -> None
         #fileToWrite = open(self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey", "w")
         #fileToWrite.write("None")
-        filePath = self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey"
+        filePath = self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey"
         if not os.path.isfile(filePath):
             return
-        os.remove(self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey")
+        os.remove(self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey")
 
     def getSessionKey(self, host, port):
         #type: (str, int) -> tuple
@@ -230,7 +231,7 @@ class DatabaseManager(threading.Thread):
 
     def __getSessionKey(self, host, port):
         #type: (str, int) -> tuple
-        filePath = self.databaseDirectory + "\\SessionKeys\\" + host + "_" + str(port) + ".sessionkey"
+        filePath = self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey"
         if not os.path.isfile(filePath):
             return False, ""
         fileToRead = open(filePath, "r")
@@ -261,7 +262,7 @@ class DatabaseManager(threading.Thread):
         if re.search(".*[" + self.unacceptedNameCharacters + "].*", name):
             return 2
 
-        if os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 1
 
         if not utils.isBase64(skAesB64):
@@ -276,35 +277,35 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(vtAesB64):
             return 6
 
-        os.mkdir(self.databaseDirectory + "\\Profiles\\" + name)
+        os.mkdir(self.databaseDirectory + "/Profiles/" + name)
 
-        nameFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\name.username", "w")
+        nameFile = open(self.databaseDirectory + "/Profiles/" + name + "/name.username", "w")
         nameFile.write(name)
         nameFile.close()
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "w")  # Public Key
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "w")  # Public Key
         pkFile.write(pk)
         pkFile.close()
 
-        skFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64", "w")  # Secret Key Aes
+        skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "w")  # Secret Key Aes
         skFile.write(skAesB64)
         skFile.close()
 
-        vtFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64", "w")  # Validation Token
+        vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "w")  # Validation Token
         vtFile.write(vtB64)
         vtFile.close()
 
-        vtAesFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validationEnc.vtaesb64",
+        vtAesFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64",
                          "w")  # Validation Token Aes
         vtAesFile.write(vtAesB64)
         vtAesFile.close()
 
-        os.mkdir(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs")
+        os.mkdir(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs")
 
-        publicFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publicFileList.pufl", "w")
+        publicFileList = open(self.databaseDirectory + "/Profiles/" + name + "/publicFileList.pufl", "w")
         publicFileList.close()
 
-        hiddenFileList = open(self.databaseDirectory + "\\Profiles\\" + name + "\\hiddenFileList.hfl", "w")
+        hiddenFileList = open(self.databaseDirectory + "/Profiles/" + name + "/hiddenFileList.hfl", "w")
         hiddenFileList.close()
 
         #chatsFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\chats.chts", "w")
@@ -327,13 +328,13 @@ class DatabaseManager(threading.Thread):
         # Error Codes (0 - All Correct,
         #              1 - User doesn't exist,
         #              2 - Strange Error where there isn't vtaesb64)
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 1, ""
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\validationEnc.vtaesb64"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64"):
             return 2, ""
 
-        vtAesFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validationEnc.vtaesb64",
+        vtAesFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64",
                          "r")  # Validation Token Aes
         vtAes = vtAesFile.read()
 
@@ -358,8 +359,8 @@ class DatabaseManager(threading.Thread):
         #              4 - Invalid Validation Token Characters,
         #              5 - Locked Account)
 
-        if os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs\\" + ip):
-            triesFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs\\" + ip, "r")
+        if os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip):
+            triesFile = open(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip, "r")
             triesNotRe = triesFile.read()
             triesNotRe = triesNotRe.split("\n")[:-1]
             triesNotReLast = triesNotRe[-1]
@@ -371,33 +372,33 @@ class DatabaseManager(threading.Thread):
                     return 5, waitingTime
             triesFile.close()
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 2, 0
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64"):
             return 3, 0
 
         if not utils.isBase64(vtB64):
             return 4, 0
 
-        vtFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64", "r")
+        vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "r")
         vtB64Correct = vtFile.read()
 
         vtShaB64 = base64.b64encode(SHA256.new(base64.b64decode(vtB64)).digest())
 
         if vtShaB64 == vtB64Correct:
             # Empty Ip Tries File
-            if os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs\\" + ip):
-                os.remove(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs\\" + ip)
-            vtFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64", "w")
+            if os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip):
+                os.remove(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip)
+            vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "w")
             vtFile.write(newVTSha)
             vtFile.close()
-            vtEncFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\validationEnc.vtaesb64", "w")
+            vtEncFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64", "w")
             vtEncFile.write(newVTEnc)
             vtEncFile.close()
             return 0, 0
 
-        ipFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs\\" + ip, "a")
+        ipFile = open(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip, "a")
         ipFile.write("Ltest: " + str(time.time()) + "\n")
         return 1, 0
 
@@ -417,13 +418,13 @@ class DatabaseManager(threading.Thread):
         #              1 - Strange Error where there isn't private key,
         #              2 - User Doesn't Exist)
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 2, ""
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64"):
             return 1, ""
 
-        skFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64", "r")
+        skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "r")
         sk = skFile.read()
 
         return 0, sk
@@ -444,13 +445,13 @@ class DatabaseManager(threading.Thread):
         #              1 - User Doesn't Exist,
         #              2 - Strange Error Where there isn't Public Key)
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 1, ""
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk"):
             return 2, ""
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "r")
         pk = pkFile.read()
 
         return 0, pk
@@ -474,16 +475,16 @@ class DatabaseManager(threading.Thread):
         #              4 - Faulty Signature,
         #              5 - Error Importing User PK)
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 1
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk"):
             return 2
 
-        if not re.search("^[a-zA-Z0-9+/;=\n]+$", signatureB64):
+        if not utils.isBase64(signatureB64):
             return 3
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
 
@@ -512,7 +513,7 @@ class DatabaseManager(threading.Thread):
             #os.remove(self.databaseDirectory + "\\Profiles\\" + name + "\\validation.vtb64")
             #os.remove(self.databaseDirectory + "\\Profiles\\" + name + "\\validationEnc.vtaesb64")
             #os.rmdir(self.databaseDirectory + "\\Profiles\\" + name + "\\triesByIPs")
-            shutil.rmtree(self.databaseDirectory + "\\Profiles\\" + name)
+            shutil.rmtree(self.databaseDirectory + "/Profiles/" + name)
             return 0
 
         return 4
@@ -540,7 +541,7 @@ class DatabaseManager(threading.Thread):
 
         newPK = base64.b64decode(newPKB64)
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + name):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 1
 
         if not utils.isBase64(signatureB64):
@@ -552,10 +553,10 @@ class DatabaseManager(threading.Thread):
         if not re.search("^-----BEGIN PUBLIC KEY-----\n[a-zA-Z0-9+/=\n]+-----END PUBLIC KEY-----$", newPK):
             return 4
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk"):
             return 5
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
 
@@ -575,11 +576,11 @@ class DatabaseManager(threading.Thread):
             validSignature = False
 
         if validSignature is True:
-            pkFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\publickey.pk", "w")
+            pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "w")
             pkFile.write(newPK)
             pkFile.close()
 
-            skFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\privatekey.skaesb64", "w")
+            skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "w")
             skFile.write(newSKAesB64)
             skFile.close()
 
@@ -610,7 +611,7 @@ class DatabaseManager(threading.Thread):
         #              8 - Missing Public File List (PUFL))
         #              9 - Exceeds max file size (4*ceil(bytes/3))
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
 
         if not utils.isBase64(fileNameB64):
@@ -622,16 +623,16 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(signatureB64):
             return 4
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
             return 5
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl"):
             return 8
 
         if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
             return 9
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
 
@@ -656,15 +657,15 @@ class DatabaseManager(threading.Thread):
 
             while True:
                 randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
-                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd"):
+                if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            publicFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
+            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
             publicFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             publicFileList.close()
 
-            fileFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
+            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
             fileFile.write(fileB64)
             fileFile.close()
 
@@ -693,7 +694,7 @@ class DatabaseManager(threading.Thread):
         #              8 - Missing Hidden File List (HFL))
         #              9 - Exceeds max file size (4*ceil(bytes/3))
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
 
         if not utils.isBase64(fileNameB64):
@@ -705,16 +706,16 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(signatureB64):
             return 4
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
             return 5
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\hiddenFileList.hfl"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl"):
             return 8
 
         if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
             return 9
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
 
@@ -739,16 +740,16 @@ class DatabaseManager(threading.Thread):
 
             while True:
                 randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
-                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd"):
+                if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            hiddenFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\hiddenFileList.hfl",
+            hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
                                   "a")  # Stands for Hidden File List (HFL)
             hiddenFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             hiddenFileList.close()
 
-            fileFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd",
+            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
                             "w")  #Stands for File Data (FD). Also fileFile is funny.
             fileFile.write(fileB64)
             fileFile.close()
@@ -778,7 +779,7 @@ class DatabaseManager(threading.Thread):
         #              8 - Missing Private File List (PRFL))
         #              9 - Exceeds max file size (4*ceil(bytes/3))
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
 
         if not utils.isBase64(fileNameB64):
@@ -790,16 +791,16 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(signatureB64):
             return 4
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
             return 5
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\privateFileList.prfl"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
             return 8
 
         if len(fileB64) > 4 * math.ceil(self.maxFileSize / 3.0):
             return 9
 
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
         pkFile.close()
 
@@ -825,16 +826,16 @@ class DatabaseManager(threading.Thread):
 
             while True:
                 randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
-                if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd"):
+                if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            privateFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\privateFileList.prfl",
+            privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
                                    "a")  # Stands for Hidden File List (HFL)
             privateFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             privateFileList.close()
 
-            fileFile = open(self.databaseDirectory + "\\Profiles\\" + user + "\\" + randomIdB64 + ".fd",
+            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
                             "w")  # Stands for File Data (FD). Also fileFile is funny.
             fileFile.write(fileB64)
             fileFile.close()
@@ -859,13 +860,13 @@ class DatabaseManager(threading.Thread):
         #              1 - User Doesn't Exist,
         #              2 - Missing Public File List (PUFL))
 
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + user):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return [1, ""]
 
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl"):
             return [2, ""]
 
-        publicFileList = open(self.databaseDirectory + "\\Profiles\\" + user + "\\publicFileList.pufl", "r")  # Stands for Public File List (PUFL)
+        publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")  # Stands for Public File List (PUFL)
         publicFileListContents = publicFileList.read()
         publicFileList.close()
         return [0, publicFileListContents]

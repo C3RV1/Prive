@@ -11,4 +11,5 @@ setup(name='PriveAPI',
       packages=find_packages(),
       install_requires=[
           'pycryptodome==3.8.2',
+          'colorama',
       ])

@@ -21,9 +21,9 @@ class GenerateKeys:
         newPrivateKeyExported = newKey.export_key()
         newPublicKeyExported = newKey.publickey().export_key()
 
-        privateKeyFile = open(self.databaseDirectory + "\\privateKey.skm", "w")
+        privateKeyFile = open(self.databaseDirectory + "/privateKey.skm", "w")
         privateKeyFile.write(newPrivateKeyExported)
         privateKeyFile.close()
-        publicKeyFile = open(self.databaseDirectory + "\\publicKey.pk", "w")
+        publicKeyFile = open(self.databaseDirectory + "/publicKey.pk", "w")
         publicKeyFile.write(newPublicKeyExported)
         publicKeyFile.close()
