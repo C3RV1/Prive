@@ -309,6 +309,9 @@ class DatabaseManager(threading.Thread):
         hiddenFileList = open(self.databaseDirectory + "/Profiles/" + name + "/hiddenFileList.hfl", "w")
         hiddenFileList.close()
 
+        privateFileList = open(self.databaseDirectory + "/Profiles/" + name + "/privateFileList.prfl", "w")
+        privateFileList.close()
+
         #chatsFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\chats.chts", "w")
         #chatsFile.close()
 
@@ -877,15 +880,108 @@ class DatabaseManager(threading.Thread):
         pass
 
     def __getHiddenFileList(self, user, signatureB64):
-        # type: (str, str) -> tuple
-        pass
+        # type: (str, str) -> list
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Missing Hidden File List (HFL),
+        #              3 - Wrong SignatureB64 characters,
+        #              4 - Strange Error Where User Doesn't have PK,
+        #              5 - Error Importing User PK,
+        #              6 - Faulty Signature)
+
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
+            return [1, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl"):
+            return [2, ""]
+
+        if not utils.isBase64(signatureB64):
+            return [3, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
+            return [4, ""]
+
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            return [5, ""]
+
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update("getHiddenFileList;name: " + user)
+        signature = base64.b64decode(signatureB64)
+
+        try:
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
+
+        if validSignature:
+            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
+                                  "r")  # Stands for Hidden File List (HFL)
+            publicFileListContents = publicFileList.read()
+            publicFileList.close()
+            return [0, publicFileListContents]
+
+        return [6, ""]
 
     def getPrivateFileList(self, user, signatureB64):
         # type: (str, str) -> tuple
         pass
 
     def __getPrivateFileList(self, user, signatureB64):
-        # type: (str, str) -> tuple
+        # type: (str, str) -> list
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Missing Private File List (PRFL),
+        #              3 - Wrong SignatureB64 characters,
+        #              4 - Strange Error Where User Doesn't have PK,
+        #              5 - Error Importing User PK,
+        #              6 - Faulty Signature)
+
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
+            return [1, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
+            return [2, ""]
+
+        if not utils.isBase64(signatureB64):
+            return [3, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
+            return [4, ""]
+
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            return [5, ""]
+
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update("getPrivateFileList;name: " + user)
+        signature = base64.b64decode(signatureB64)
+
+        try:
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
+
+        if validSignature:
+            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
+                                  "r")  # Stands for Hidden File List (HFL)
+            publicFileListContents = publicFileList.read()
+            publicFileList.close()
+            return [0, publicFileListContents]
+
+        return [6, ""]
         pass
 
     def getFile(self, user, id):  # Works for both Public & Hidden Files
