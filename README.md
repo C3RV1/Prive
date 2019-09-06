@@ -1,5 +1,6 @@
 # Prive
 Online service where you can save your files without risks.
+Tested on Windows and Linux.
 
 # How to run locally
 
