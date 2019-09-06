@@ -304,12 +304,15 @@ class DatabaseManager(threading.Thread):
         os.mkdir(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs")
 
         publicFileList = open(self.databaseDirectory + "/Profiles/" + name + "/publicFileList.pufl", "w")
+        publicFileList.write(",")
         publicFileList.close()
 
         hiddenFileList = open(self.databaseDirectory + "/Profiles/" + name + "/hiddenFileList.hfl", "w")
+        hiddenFileList.write(",")
         hiddenFileList.close()
 
         privateFileList = open(self.databaseDirectory + "/Profiles/" + name + "/privateFileList.prfl", "w")
+        privateFileList.write(",")
         privateFileList.close()
 
         #chatsFile = open(self.databaseDirectory + "\\Profiles\\" + name + "\\chats.chts", "w")
@@ -666,7 +669,7 @@ class DatabaseManager(threading.Thread):
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
             publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
-            publicFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            publicFileList.write(",fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             publicFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
@@ -750,7 +753,7 @@ class DatabaseManager(threading.Thread):
 
             hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
                                   "a")  # Stands for Hidden File List (HFL)
-            hiddenFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            hiddenFileList.write(",fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             hiddenFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -768,7 +771,7 @@ class DatabaseManager(threading.Thread):
             retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
         except:
             self.log("Error addPrivateFile", error=True)
-        return  retValue
+        return retValue
 
     def __addPrivateFile(self, user, fileNameB64, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
@@ -835,8 +838,8 @@ class DatabaseManager(threading.Thread):
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
-                                   "a")  # Stands for Hidden File List (HFL)
-            privateFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+                                   "a")  # Stands for Private File List (PRFL)
+            privateFileList.write(",fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             privateFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -996,26 +999,85 @@ class DatabaseManager(threading.Thread):
         return [6, ""]
         pass
 
-    def getFile(self, user, id):  # Works for both Public & Hidden Files
-        # type: (str, str) -> tuple
+    def getFile(self, user, fileIdB64):  # Works for both Public & Hidden Files
+        # type: (str, str) -> list
+        retValue = [-1, ""]
+        try:
+            retValue = self.__getFile(user, fileIdB64)
+        except:
+            self.log("Error getFile", error=True)
+        return retValue
+
+    def __getFile(self, user, fileIdB64):
+        # type: (str, str) -> list
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Missing Public File List (PUFL),
+        #              3 - Missing Hidden File List (HFL),
+        #              4 - Invalid File Id Characters,
+        #              5 - File In A File List but Nonexistent,
+        #              6 - File Not Found)
+
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
+            return [1, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl"):
+            return [2, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl"):
+            return [3, ""]
+
+        if not utils.isBase64(fileIdB64):
+            return [4, ""]
+
+        publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
+        hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "r")
+
+        publicFileListContents = publicFileListFile.read()
+        hiddenFileListContents = hiddenFileListFile.read()
+
+        publicFileListFile.close()
+        hiddenFileListFile.close()
+
+        publicFileListContentsSplit = publicFileListContents.split(",")
+        publicFileListContentsSplit = publicFileListContentsSplit[1:-1]
+
+        hiddenFileListContentsSplit = hiddenFileListContents.split(",")
+        hiddenFileListContentsSplit = hiddenFileListContentsSplit[1:-1]
+
+        allIds = []
+        for i in publicFileListContentsSplit:
+            idRe = re.search("fileName: .+;id: (.+)", i)
+            if idRe:
+                allIds.append(idRe.group(1))
+        for i in hiddenFileListContentsSplit:
+            idRe = re.search("fileName: .+;id: (.+)", i)
+            if idRe:
+                allIds.append(idRe.group(1))
+
+        if fileIdB64 in allIds:
+            if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
+                return [5, ""]
+            fileB64File = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd", "r")
+            fileB64 = fileB64File.read()
+            fileB64File.close()
+            return [0, fileB64]
+        else:
+            return [6, ""]
         pass
 
-    def __getFile(self, user, id):
-        # type: (str, str) -> tuple
-        pass
-
-    def getPrivateFile(self, user, id, signatureB64):
+    def getPrivateFile(self, user, fileIdB64, signatureB64):
         # type: (str, str, str) -> tuple
         pass
 
-    def __getPrivateFile(self, user, id, signatureB64):
+    def __getPrivateFile(self, user, fileIdB64, signatureB64):
         # type: (str, str, str) -> tuple
         pass
 
-    def deleteFile(self, user, id, signatureB64):
+    def deleteFile(self, user, fileIdB64, signatureB64):
         pass
 
-    def __deleteFile(self, user, id, signatureB64):
+    def __deleteFile(self, user, fileIdB64, signatureB64):
         pass
 
     # Not Used
