@@ -854,7 +854,7 @@ class DatabaseManager(threading.Thread):
         try:
             retValue = self.__getPublicFileList(user)
         except:
-            self.log("Error addPrivateFile", error=True)
+            self.log("Error getPublicFileList", error=True)
         return retValue
         pass
 
@@ -876,7 +876,13 @@ class DatabaseManager(threading.Thread):
         return [0, publicFileListContents]
 
     def getHiddenFileList(self, user, signatureB64):
-        # type: (str, str) -> tuple
+        # type: (str, str) -> list
+        retValue = [-1, ""]
+        try:
+            retValue = self.__getHiddenFileList(user, signatureB64)
+        except:
+            self.log("Error getHiddenFileList", error=True)
+        return retValue
         pass
 
     def __getHiddenFileList(self, user, signatureB64):
@@ -930,7 +936,13 @@ class DatabaseManager(threading.Thread):
         return [6, ""]
 
     def getPrivateFileList(self, user, signatureB64):
-        # type: (str, str) -> tuple
+        # type: (str, str) -> list
+        retValue = [-1, ""]
+        try:
+            retValue = self.__getPrivateFileList(user, signatureB64)
+        except:
+            self.log("Error getPrivateFileList", error=True)
+        return retValue
         pass
 
     def __getPrivateFileList(self, user, signatureB64):
