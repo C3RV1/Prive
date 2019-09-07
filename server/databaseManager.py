@@ -930,11 +930,11 @@ class DatabaseManager(threading.Thread):
             validSignature = False
 
         if validSignature:
-            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
+            hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
                                   "r")  # Stands for Hidden File List (HFL)
-            publicFileListContents = publicFileList.read()
-            publicFileList.close()
-            return [0, publicFileListContents]
+            hiddenFileListContents = hiddenFileList.read()
+            hiddenFileList.close()
+            return [0, hiddenFileListContents]
 
         return [6, ""]
 
@@ -990,11 +990,11 @@ class DatabaseManager(threading.Thread):
             validSignature = False
 
         if validSignature:
-            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
+            privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
                                   "r")  # Stands for Hidden File List (HFL)
-            publicFileListContents = publicFileList.read()
-            publicFileList.close()
-            return [0, publicFileListContents]
+            privateFileListContents = privateFileList.read()
+            privateFileList.close()
+            return [0, privateFileListContents]
 
         return [6, ""]
         pass
@@ -1067,12 +1067,68 @@ class DatabaseManager(threading.Thread):
         pass
 
     def getPrivateFile(self, user, fileIdB64, signatureB64):
-        # type: (str, str, str) -> tuple
+        # type: (str, str, str) -> list
+        retValue = [-1, ""]
+        try:
+            retValue = self.__getPrivateFile(user, fileIdB64, signatureB64)
+        except:
+            self.log("Error getPrivateFile", error=True)
+        return retValue
         pass
 
     def __getPrivateFile(self, user, fileIdB64, signatureB64):
-        # type: (str, str, str) -> tuple
-        pass
+        # type: (str, str, str) -> list
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Strange Error Where User Doesn't Have PK,
+        #              3 - Invalid Signature Characters,
+        #              4 - Invalid Id Characters,
+        #              5 - Missing Private File List (PRFL),
+        #              6 - Error Importing User PK,
+        #              7 - Faulty Signature)
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user):
+            return [1, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicKey.pk"):
+            return [2, ""]
+
+        if not utils.isBase64(signatureB64):
+            return [3, ""]
+
+        if not utils.isBase64(fileIdB64):
+            return [4, ""]
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
+            return [5, ""]
+
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            return [6, ""]
+
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update("getPrivateFile;name: " + user + ";id: " + fileIdB64)
+        signature = base64.b64decode(signatureB64)
+
+        try:
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
+
+        if validSignature:
+            privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
+                                  "r")  # Stands for Hidden File List (HFL)
+            publicFileListContents = publicFileList.read()
+            publicFileList.close()
+            return [0, publicFileListContents]
+
+        return [7, ""]
 
     def deleteFile(self, user, fileIdB64, signatureB64):
         pass
