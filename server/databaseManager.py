@@ -669,7 +669,7 @@ class DatabaseManager(threading.Thread):
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
             publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
-            publicFileList.write(",fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            publicFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             publicFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
@@ -753,7 +753,7 @@ class DatabaseManager(threading.Thread):
 
             hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
                                   "a")  # Stands for Hidden File List (HFL)
-            hiddenFileList.write(",fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            hiddenFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             hiddenFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -839,7 +839,7 @@ class DatabaseManager(threading.Thread):
 
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
                                    "a")  # Stands for Private File List (PRFL)
-            privateFileList.write(",fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            privateFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
             privateFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -1092,7 +1092,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user):
             return [1, ""]
 
-        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicKey.pk"):
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
             return [2, ""]
 
         if not utils.isBase64(signatureB64):
@@ -1162,7 +1162,15 @@ class DatabaseManager(threading.Thread):
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Invalid Signature Characters,
-        #              3 - Invalid Id Characters)
+        #              3 - Invalid Id Characters,
+        #              4 - Missing Public File List (PUFL),
+        #              5 - Missing Hidden File List (HFL),
+        #              6 - Missing Private File List (PRFL),
+        #              7 - Strange Error Where User Doesn't Have PK,
+        #              8 - Error Importing User PK,
+        #              9 - Faulty Signature,
+        #              10 - File not found,
+        #              11 - File In A File List but Nonexistent)
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
@@ -1182,9 +1190,109 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
             return 6
 
-        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/"):
-            pass
-        pass
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
+            return 7
+
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pk = pkFile.read()
+        pkFile.close()
+
+        try:
+            pkKey = RSA.importKey(pk)
+        except:
+            return 8
+
+        signatureToVerify = SHA256.new()
+        signatureToVerify.update("deleteFile;name: " + user + ";id: " + fileIdB64)
+        signature = base64.b64decode(signatureB64)
+
+        try:
+            PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
+            validSignature = True
+        except:
+            validSignature = False
+
+        if validSignature:
+            publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
+            hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "r")
+            privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "r")
+
+            publicFileListSplitComma = publicFileListFile.read().split(",")[1:-1]
+            hiddenFileListSplitComma = hiddenFileListFile.read().split(",")[1:-1]
+            privateFileListSplitComma = privateFileListFile.read().split(",")[1:-1]
+
+            found = False
+            index = 0
+            result = ","
+
+            for i in range(0, len(publicFileListSplitComma)):
+                idRe = re.search("fileName: .+;id: " + fileIdB64, publicFileListSplitComma[i])
+                if idRe:
+                    found = True
+                    index = i
+                    break
+
+            if found:
+                publicFileListSplitComma.pop(index)
+            else:
+                for i in range(0, len(hiddenFileListSplitComma)):
+                    idRe = re.search("fileName: .+;id: " + fileIdB64, hiddenFileListSplitComma[i])
+                    if idRe:
+                        found = True
+                        index = i
+                        break
+                if found:
+                    hiddenFileListSplitComma.pop(index)
+                else:
+                    for i in range(0, len(privateFileListSplitComma)):
+                        idRe = re.search("fileName: .+;id: " + fileIdB64, privateFileListSplitComma[i])
+                        if idRe:
+                            found = True
+                            index = i
+                            break
+                    if found:
+                        privateFileListSplitComma.pop(index)
+                    else:
+                        return 10
+
+            fileToDelete = fileIdB64 + ".fd"
+            if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileToDelete):
+                return 11
+
+            # Could potentially be exploited to remove any file, but we have sanitized the input
+            os.remove(self.databaseDirectory + "/Profiles/" + user + "/" + fileToDelete)
+
+            publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "w")
+            hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "w")
+            privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "w")
+
+            result = ","
+
+            for i in publicFileListSplitComma:
+                result += i + ","
+
+            publicFileListFile.write(result)
+            publicFileListFile.close()
+
+            result = ","
+
+            for i in hiddenFileListSplitComma:
+                result += i + ","
+
+            hiddenFileListFile.write(result)
+            hiddenFileListFile.close()
+
+            result = ","
+
+            for i in privateFileListSplitComma:
+                result += i + ","
+
+            privateFileListFile.write(result)
+            privateFileListFile.close()
+
+            return 0
+        else:
+            return 9
 
     # Not Used
     """def __createChat(self, creatorName, chatName, keys, firstMessage, signature, messageValidationSha):
