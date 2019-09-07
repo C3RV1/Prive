@@ -1085,7 +1085,9 @@ class DatabaseManager(threading.Thread):
         #              4 - Invalid Id Characters,
         #              5 - Missing Private File List (PRFL),
         #              6 - Error Importing User PK,
-        #              7 - Faulty Signature)
+        #              7 - Faulty Signature,
+        #              8 - File Not Found,
+        #              9 - File In A File List but Nonexistent)
 
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user):
             return [1, ""]
@@ -1123,17 +1125,65 @@ class DatabaseManager(threading.Thread):
 
         if validSignature:
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
-                                  "r")  # Stands for Hidden File List (HFL)
-            publicFileListContents = publicFileList.read()
-            publicFileList.close()
-            return [0, publicFileListContents]
+                                   "r")
+            privateFileListSplit = privateFileList.read().split(",")
+            privateFileListSplit = privateFileListSplit[1:-1]
+            privateFileList.close()
+
+            allIds = []
+            for i in privateFileListSplit:
+                idRe = re.search("filename: .+;id: (.+)", i)
+                if idRe:
+                    allIds.append(idRe.group(1))
+
+            if fileIdB64 in allIds:
+                if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
+                    return [9, ""]
+                fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd")
+                fileContents = fileFile.read()
+                fileFile.close()
+                return [0, fileContents]
+            else:
+                return [8, ""]
 
         return [7, ""]
 
     def deleteFile(self, user, fileIdB64, signatureB64):
-        pass
+        #type: (str, str, str) -> int
+        retValue = -1
+        try:
+            retValue = self.__deleteFile(user, fileIdB64, signatureB64)
+        except:
+            self.log("Error deleteFile", error=True)
+        return retValue
 
     def __deleteFile(self, user, fileIdB64, signatureB64):
+        #type: (str, str, str) -> int
+        # Error Codes (0 - All Correct,
+        #              1 - User Doesn't Exist,
+        #              2 - Invalid Signature Characters,
+        #              3 - Invalid Id Characters)
+
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
+            return 1
+
+        if not utils.isBase64(signatureB64):
+            return 2
+
+        if not utils.isBase64(fileIdB64):
+            return 3
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl"):
+            return 4
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl"):
+            return 5
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
+            return 6
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/"):
+            pass
         pass
 
     # Not Used
