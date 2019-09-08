@@ -12,5 +12,5 @@ if __name__ == "__main__":
                          maxCurrentUsers=Config.MAX_CURRENT_USERS, databasePath=Config.DATABASE_PATH,
                          logFile=Config.LOGFILE, unacceptedNameCharacters=Config.UNACCEPTED_NAME_CHARCTERS,
                          clientTimeout=Config.CLIENT_TIMEOUT, keySize=Config.KEYSIZE, version=Config.VERSION,
-                         maxFileSize=Config.MAX_FILE_SIZE)
+                         maxFileSize=Config.MAX_FILE_SIZE, maxFiles=Config.MAX_FILES)
     print Fore.WHITE + "Program Exit"

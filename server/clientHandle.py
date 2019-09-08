@@ -367,41 +367,108 @@ class ClientHandle(threading.Thread):
             elif l_databaseQueryErrorCode == 9:
                 msg = "File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
                     self.databaseManager.maxFileSize)
+            elif l_databaseQueryErrorCode == 10:
+                msg = "Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(self.databaseManager.maxFiles)
             elif l_databaseQueryErrorCode == -1:
                 msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
-        addHiddenFile = re.search("^addHiddenFile;name: (.+);fileName: (.+);fileB64: (.+);signatureB64: (.+)$",
+        addHiddenFile = re.search("^addHiddenFile;name: (.+);fileNameB64: (.+);fileB64: (.+);signatureB64: (.+)$",
                                   decryptedMessage)
 
         if addHiddenFile and False:
             l_name = addHiddenFile.group(1)
-            l_fileName = addHiddenFile.group(2)
+            l_fileNameB64 = addHiddenFile.group(2)
             l_fileB64 = addHiddenFile.group(3)
             l_signatureB64 = addHiddenFile.group(4)
 
-            l_databaseQueryErrorCode = self.databaseManager.addHiddenFile(l_name, l_fileName, l_fileB64, l_signatureB64)
+            l_databaseQueryErrorCode = self.databaseManager.executeFunction("addHiddenFile", (l_name, l_fileNameB64,
+                                                                                              l_fileB64,
+                                                                                              l_signatureB64))
 
-        addPrivateFile = re.search("^addPrivateFile;name: (.+);fileName: (.+);fileB64: (.+);signatureB64: (.+)$",
+            msg = ""
+
+            if l_databaseQueryErrorCode == 0:
+                msg = "File Added;errorCode: successful"
+            elif l_databaseQueryErrorCode == 1:
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
+            elif l_databaseQueryErrorCode == 2:
+                msg = "Invalid Filename Characters;errorCode: invalidFilename"
+            elif l_databaseQueryErrorCode == 3:
+                msg = "Invalid File Characters;errorCode: invalidFileCharacters"
+            elif l_databaseQueryErrorCode == 4:
+                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
+            elif l_databaseQueryErrorCode == 5:
+                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
+            elif l_databaseQueryErrorCode == 6:
+                msg = "Error Importing User PK;errorCode: faultyPK"
+            elif l_databaseQueryErrorCode == 7:
+                msg = "Faulty Signature;errorCode: invalidSign"
+            elif l_databaseQueryErrorCode == 8:
+                msg = "Missing Public File List;errorCode: missingPUFL"
+            elif l_databaseQueryErrorCode == 9:
+                msg = "File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
+                    self.databaseManager.maxFileSize)
+            elif l_databaseQueryErrorCode == 10:
+                msg = "Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(self.databaseManager.maxFiles)
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
+
+        addPrivateFile = re.search("^addPrivateFile;name: (.+);fileNameB64: (.+);fileB64: (.+);signatureB64: (.+)$",
                                    decryptedMessage)
 
         if addPrivateFile and False:
             l_name = addPrivateFile.group(1)
-            l_fileName = addPrivateFile.group(2)
+            l_fileNameB64 = addPrivateFile.group(2)
             l_fileB64 = addPrivateFile.group(3)
             l_signatureB64 = addPrivateFile.group(4)
 
-            l_databaseQueryErrorCode = self.databaseManager.addPrivateFile(l_name, l_fileName, l_fileB64,
-                                                                           l_signatureB64)
+            l_databaseQueryErrorCode = self.databaseManager.executeFunction("addPrivateFile", (l_name, l_fileNameB64,
+                                                                                               l_fileB64,
+                                                                                               l_signatureB64))
+
+            msg = ""
+
+            if l_databaseQueryErrorCode == 0:
+                msg = "File Added;errorCode: successful"
+            elif l_databaseQueryErrorCode == 1:
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
+            elif l_databaseQueryErrorCode == 2:
+                msg = "Invalid Filename Characters;errorCode: invalidFilename"
+            elif l_databaseQueryErrorCode == 3:
+                msg = "Invalid File Characters;errorCode: invalidFileCharacters"
+            elif l_databaseQueryErrorCode == 4:
+                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
+            elif l_databaseQueryErrorCode == 5:
+                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
+            elif l_databaseQueryErrorCode == 6:
+                msg = "Error Importing User PK;errorCode: faultyPK"
+            elif l_databaseQueryErrorCode == 7:
+                msg = "Faulty Signature;errorCode: invalidSign"
+            elif l_databaseQueryErrorCode == 8:
+                msg = "Missing Public File List;errorCode: missingPUFL"
+            elif l_databaseQueryErrorCode == 9:
+                msg = "File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
+                    self.databaseManager.maxFileSize)
+            elif l_databaseQueryErrorCode == 10:
+                msg = "Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(self.databaseManager.maxFiles)
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+
+                self.send(msg, encrypted=True, key=sessionKey)
+                return False
 
         getPublicFileList = re.search("^getPublicFileList;name: (.+)$", decryptedMessage)
 
         if getPublicFileList and False:
             l_name = getPublicFileList.group(1)
 
-            l_databaseQueryResult = self.databaseManager.executeFunction(getPublicFileList, (l_name,))
+            l_databaseQueryResult = self.databaseManager.executeFunction("getPublicFileList", (l_name,))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
             msg = ""
@@ -424,8 +491,31 @@ class ClientHandle(threading.Thread):
             l_name = getHiddenFileList.group(1)
             l_signatureB64 = getHiddenFileList.group(2)
 
-            l_databaseQueryResult = self.databaseManager.getHiddenFileList(l_name, l_signatureB64)
+            l_databaseQueryResult = self.databaseManager.executeFunction("getHiddenFileList", (l_name,
+                                                                                               l_signatureB64))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+            msg = ""
+
+            if l_databaseQueryErrorCode == 0:
+                msg = "Returning HFL;hfl: " + l_databaseQueryResult[1] + ";errorCode: successful"
+            elif l_databaseQueryErrorCode == 1:
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
+            elif l_databaseQueryErrorCode == 2:
+                msg = "Missing Hidden File List;errorCode: missingHFL"
+            elif l_databaseQueryErrorCode == 3:
+                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
+            elif l_databaseQueryErrorCode == 4:
+                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
+            elif l_databaseQueryErrorCode == 5:
+                msg = "Error Importing User PK;errorCode: faultyPK"
+            elif l_databaseQueryErrorCode == 6:
+                msg = "Faulty Signature;errorCode: invalidSign"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
 
         getPrivateFileList = re.search("^getPrivateFileList;name: (.+);signatureB64: (.+)$", decryptedMessage)
 
@@ -433,8 +523,31 @@ class ClientHandle(threading.Thread):
             l_name = getPrivateFileList.group(1)
             l_signatureB64 = getPrivateFileList.group(2)
 
-            l_databaseQueryResult = self.databaseManager.getPrivateFileList(l_name, l_signatureB64)
+            l_databaseQueryResult = self.databaseManager.executeFunction("getPrivateFileList", (l_name,
+                                                                                                l_signatureB64))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+            msg = ""
+
+            if l_databaseQueryErrorCode == 0:
+                msg = "Returning PRFL;prfl: " + l_databaseQueryResult[1] + ";errorCode: successful"
+            elif l_databaseQueryErrorCode == 1:
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
+            elif l_databaseQueryErrorCode == 2:
+                msg = "Missing Private File List;errorCode: missingPRFL"
+            elif l_databaseQueryErrorCode == 3:
+                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
+            elif l_databaseQueryErrorCode == 4:
+                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
+            elif l_databaseQueryErrorCode == 5:
+                msg = "Error Importing User PK;errorCode: faultyPK"
+            elif l_databaseQueryErrorCode == 6:
+                msg = "Faulty Signature;errorCode: invalidSign"
+            elif l_databaseQueryErrorCode == -1:
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
 
         getFile = re.search("^getFile;name: (.+);id: (.+)$", decryptedMessage)
 
@@ -442,8 +555,30 @@ class ClientHandle(threading.Thread):
             l_name = getFile.group(1)
             l_id = getFile.group(2)
 
-            l_databaseQueryResult = self.databaseManager.getFile(l_name, l_id)
+            l_databaseQueryResult = self.databaseManager.executeFunction("getFile", (l_name, l_id))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
+
+            msg = ""
+
+            if l_databaseQueryErrorCode == 0:
+                pass
+            elif l_databaseQueryErrorCode == 1:
+                pass
+            elif l_databaseQueryErrorCode == 2:
+                pass
+            elif l_databaseQueryErrorCode == 3:
+                pass
+            elif l_databaseQueryErrorCode == 4:
+                pass
+            elif l_databaseQueryErrorCode == 5:
+                pass
+            elif l_databaseQueryErrorCode == 6:
+                pass
+            elif l_databaseQueryErrorCode == -1:
+                pass
+
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
 
         getPrivateFile = re.search("^getPrivateFile;name: (.+);id: (.+);signatureB64: (.+)$", decryptedMessage)
 
@@ -452,7 +587,8 @@ class ClientHandle(threading.Thread):
             l_id = getPrivateFile.group(2)
             l_signatureB64 = getPrivateFile.group(3)
 
-            l_databaseQueryResult = self.databaseManager.getPrivateFile(l_name, l_id, l_signatureB64)
+            l_databaseQueryResult = self.databaseManager.executeFunction("getPrivateFile", (l_name, l_id,
+                                                                                            l_signatureB64))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
 

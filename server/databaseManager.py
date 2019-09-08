@@ -18,8 +18,9 @@ import server
 
 class DatabaseManager(threading.Thread):
 
-    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize, serverMaster):
-        #type: (str, str, str, int, int, server.Server) -> None
+    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize, maxFiles,
+                 serverMaster):
+        #type: (str, str, str, int, int, int, server.Server) -> None
         threading.Thread.__init__(self)
         self.databaseDirectory = databaseDirectory
         self.unacceptedNameCharacters = unacceptedNameCharacters
@@ -49,6 +50,7 @@ class DatabaseManager(threading.Thread):
         self.logger = logger.Logger(logFile)
         self.maxFileSize = maxFileSize
         self.serverMaster = serverMaster
+        self.maxFiles = maxFiles
 
         self.availableFunctions = ["newUser", "getVTAesB64", "checkVT", "getSK", "getPK",
                                    "delUser", "updateKeys", "addPublicFile",
@@ -616,7 +618,8 @@ class DatabaseManager(threading.Thread):
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature,
         #              8 - Missing Public File List (PUFL))
-        #              9 - Exceeds max file size (4*ceil(bytes/3))
+        #              9 - Exceeds max file size (4*ceil(bytes/3),
+        #              10 - Max files reached)
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
@@ -638,6 +641,13 @@ class DatabaseManager(threading.Thread):
 
         if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
             return 9
+
+        publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
+        publicFileListNofFiles = len(publicFileListFile.read().split(",")[1:-1])
+        publicFileListFile.close()
+
+        if publicFileListNofFiles >= self.maxFiles:
+            return 10
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
@@ -699,7 +709,8 @@ class DatabaseManager(threading.Thread):
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature,
         #              8 - Missing Hidden File List (HFL))
-        #              9 - Exceeds max file size (4*ceil(bytes/3))
+        #              9 - Exceeds max file size (4*ceil(bytes/3),
+        #              10 - Max files reached)
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
@@ -721,6 +732,13 @@ class DatabaseManager(threading.Thread):
 
         if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
             return 9
+
+        hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "r")
+        hiddenFileListNofFiles = len(hiddenFileListFile.read().split(",")[1:-1])
+        hiddenFileListFile.close()
+
+        if hiddenFileListNofFiles >= self.maxFiles:
+            return 10
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
@@ -784,7 +802,8 @@ class DatabaseManager(threading.Thread):
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature,
         #              8 - Missing Private File List (PRFL))
-        #              9 - Exceeds max file size (4*ceil(bytes/3))
+        #              9 - Exceeds max file size (4*ceil(bytes/3),
+        #              10 - Max files reached)
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
@@ -806,6 +825,13 @@ class DatabaseManager(threading.Thread):
 
         if len(fileB64) > 4 * math.ceil(self.maxFileSize / 3.0):
             return 9
+
+        privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "r")
+        privateFileListNofFiles = len(privateFileListFile.read().split(",")[1:-1])
+        privateFileListFile.close()
+
+        if privateFileListNofFiles >= self.maxFiles:
+            return 10
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
@@ -1223,7 +1249,6 @@ class DatabaseManager(threading.Thread):
 
             found = False
             index = 0
-            result = ","
 
             for i in range(0, len(publicFileListSplitComma)):
                 idRe = re.search("fileName: .+;id: " + fileIdB64, publicFileListSplitComma[i])
