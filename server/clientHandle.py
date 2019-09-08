@@ -561,21 +561,21 @@ class ClientHandle(threading.Thread):
             msg = ""
 
             if l_databaseQueryErrorCode == 0:
-                pass
+                msg = "Returning fileB64;fileB64: " + l_databaseQueryErrorCode[1] + ";errorCode: successful"
             elif l_databaseQueryErrorCode == 1:
-                pass
+                msg = "User Doesn't Exist;errorCode: usrNotFound"
             elif l_databaseQueryErrorCode == 2:
-                pass
+                msg = "Missing Public File List;errorCode: missingPUFL"
             elif l_databaseQueryErrorCode == 3:
-                pass
+                msg = "Missing Hidden File List;errorCode: missingHFL"
             elif l_databaseQueryErrorCode == 4:
-                pass
+                msg = "Invalid Id Characters;errorCode: invalidIdCh"
             elif l_databaseQueryErrorCode == 5:
-                pass
+                msg = "File in a list but nonexistent;errorCode: fileInListButNonexistent"
             elif l_databaseQueryErrorCode == 6:
-                pass
+                msg = "File not found;errorCode: fileNotFound"
             elif l_databaseQueryErrorCode == -1:
-                pass
+                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
