@@ -885,7 +885,6 @@ class DatabaseManager(threading.Thread):
         except:
             self.log("Error getPublicFileList", error=True)
         return retValue
-        pass
 
     def __getPublicFileList(self, user):
         # type: (str) -> list
@@ -912,7 +911,6 @@ class DatabaseManager(threading.Thread):
         except:
             self.log("Error getHiddenFileList", error=True)
         return retValue
-        pass
 
     def __getHiddenFileList(self, user, signatureB64):
         # type: (str, str) -> list
@@ -972,7 +970,6 @@ class DatabaseManager(threading.Thread):
         except:
             self.log("Error getPrivateFileList", error=True)
         return retValue
-        pass
 
     def __getPrivateFileList(self, user, signatureB64):
         # type: (str, str) -> list
@@ -1023,7 +1020,6 @@ class DatabaseManager(threading.Thread):
             return [0, privateFileListContents]
 
         return [6, ""]
-        pass
 
     def getFile(self, user, fileIdB64):  # Works for both Public & Hidden Files
         # type: (str, str) -> list
@@ -1090,7 +1086,6 @@ class DatabaseManager(threading.Thread):
             return [0, fileB64]
         else:
             return [6, ""]
-        pass
 
     def getPrivateFile(self, user, fileIdB64, signatureB64):
         # type: (str, str, str) -> list
@@ -1100,7 +1095,6 @@ class DatabaseManager(threading.Thread):
         except:
             self.log("Error getPrivateFile", error=True)
         return retValue
-        pass
 
     def __getPrivateFile(self, user, fileIdB64, signatureB64):
         # type: (str, str, str) -> list
@@ -1318,109 +1312,3 @@ class DatabaseManager(threading.Thread):
             return 0
         else:
             return 9
-
-    # Not Used
-    """def __createChat(self, creatorName, chatName, keys, firstMessage, signature, messageValidationSha):
-        # type: (str, str, str, str, str, str) -> int
-        # Returns errorCode
-        # Error Codes (0  - All Correct,
-        #              1  - Creator User Doesn't Exist,
-        #              2  - Strange Error Where User Doesn't Have Chats Folder,
-        #              3  - Invalid Chat Name Characters,
-        #              4  - Chat Already Exists,
-        #              5  - Strange Error Where User Doesn't Have PK,
-        #              6  - Invalid Keys Characters,
-        #              7  - Faulty Signature,
-        #              8  - Incorrect Number Of Keys,
-        #              9  - Invalid First Message Characters,
-        #              10 - Invalid Key Characters)
-
-        self.databaseLock.acquire()
-
-        if not os.path.isdir(self.databaseDirectory + "\\Profiles\\" + creatorName):
-            self.databaseLock.release()
-            return 1
-
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + creatorName + "\\chats.chts"):
-            self.databaseLock.release()
-            return 2
-
-        if re.search(".*[\r\n/\\\\:\"?*<>|.].*", chatName):
-            self.databaseLock.release()
-            return 3
-
-        if re.search(".*\r\n.*", firstMessage):
-            self.databaseLock.release()
-            return 9
-
-        if os.path.isdir(self.databaseDirectory + "\\Chats\\" + chatName):
-            return 4
-
-        if not os.path.isfile(self.databaseDirectory + "\\Profiles\\" + creatorName + "\\publickey.pk"):
-            self.databaseLock.release()
-            return 5
-
-        if not re.search("^[a-zA-Z0-9+/;=\n]+$", keys):
-            self.databaseLock.release()
-            return 6
-
-        if not re.search("^[a-zA-Z0-9+/;=\n]+$", messageValidationSha):
-            self.databaseLock.release()
-            return 10
-
-        if not keys.split("\n")[:-1].__len__() == 1:
-            self.databaseLock.release()
-            return 8
-
-        signToVerifyStr = "newChat;creatorName: " + creatorName + ";chatName: " + chatName + ";keys: " + keys
-        signToVerifyStr = signToVerifyStr + ";firstMessage: " + firstMessage
-
-        pkFile = open(self.databaseDirectory + "\\Profiles\\" + creatorName + "\\publickey.pk", "r")
-        pk = pkFile.read()
-        pkFile.close()
-        pkKey = RSA.importKey(pk)
-
-        signature = base64.b64decode(signature)
-
-        signToVerify = SHA256.new()
-        signToVerify.update(signToVerifyStr)
-
-        try:
-            PKCS1_v1_5_Sig.new(pkKey).verify(signToVerify, signature)
-            validSignature = True
-        except:
-            validSignature = False
-
-        if not validSignature:
-            self.databaseLock.release()
-            return 7
-
-        os.mkdir(self.databaseDirectory + "\\Chats\\" + chatName)
-
-        chatFile = open(self.databaseDirectory + "\\Chats\\" + chatName + "\\chat.ch", "a")
-        chatFile.write(creatorName + ": " + firstMessage + "\r\n")
-        chatFile.close()
-
-        keysFile = open(self.databaseDirectory + "\\Chats\\" + chatName + "\\keys.ks", "w")
-        keysFile.write(keys)
-        keysFile.close()
-
-        memberFile = open(self.databaseDirectory + "\\Chats\\" + chatName + "\\Members.ms", "a")
-        memberFile.write(creatorName + ";")
-        memberFile.close()
-
-        profileMemberFile = open(self.databaseDirectory + "\\Profiles\\" + creatorName + "\\chats.chts", "a")
-        profileMemberFile.write(chatName + ";")
-        profileMemberFile.close()
-
-        adminFile = open(self.databaseDirectory + "\\Chats\\" + chatName + "\\admin.an", "w")
-        adminFile.write(chatName)
-        adminFile.close()
-
-        msgValidationShaFile = open(self.databaseDirectory + "\\Chats\\" + chatName + "\\msgVS.msgvsha", "w")
-        msgValidationShaFile.write(messageValidationSha)
-        msgValidationShaFile.close()
-
-        self.databaseLock.release()
-
-        return 0"""
