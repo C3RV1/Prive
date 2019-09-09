@@ -142,12 +142,9 @@ class PriveAPIInstance:
         msgRece = msgReceived[1]
 
         # Extract Data
-        msgDataExtracted = self.extractData(msgRece)
-        msgErrorCode = msgDataExtracted[1]
-        if msgErrorCode == "":
-            raise Exception("Error Parsing Received Message (Error 1)")
+        msgDict = self.extractKeys(msgRece)
 
-        return msgErrorCode
+        return msgDict
 
     def __getVT(self, userName, password):
         # Create Message
@@ -164,24 +161,9 @@ class PriveAPIInstance:
         msgReceived = msgReceived[1]
 
         # Extract Data
-        msgDataExtracted = self.extractData(msgReceived)
-        msgErrorCode = msgDataExtracted[1]
-        if msgErrorCode == "":
-            raise Exception("Error Parsing Received Message (Error 1)")
+        msgDict = self.extractKeys(msgReceived)
 
-        # Check Successful
-        if not msgErrorCode == "successful":
-            return 1, "", msgErrorCode
-
-        # Extract VTEnc
-        vtExtracted = re.search(".+;vt: (.+)", msgDataExtracted[0])
-        if not vtExtracted:
-            raise Exception("Error Parsing Received Message (Error 1)")
-        vtEnc = vtExtracted.group(1)
-
-        # Decrypt VT
-        vtAesDecrypted = base64.b64encode(self.decryptWithPadding(password, vtEnc)[1])
-        return 0, vtAesDecrypted, ""
+        return msgDict
 
     def __checkVT(self, userName, password, vtDecrypted):
         # Validation Token
@@ -203,23 +185,11 @@ class PriveAPIInstance:
         response = response[1]
 
         # Extract Data
-        msgDataExtracted = self.extractData(response)
-        msgErrorCode = msgDataExtracted[1]
-        if msgErrorCode == "":
-            raise Exception("Error Parsing Received Message (Error 1)")
-
-        if not msgErrorCode == "successful":
-            return 1, msgDataExtracted[0], msgErrorCode
-
-        skExtracted = re.search(".+;sk: (.+)", msgDataExtracted[0])
-        if not skExtracted:
-            raise Exception("Error Parsing Received Message (Error 1)")
-        sk = skExtracted.group(1)
-        skDecrypted = self.decryptWithPadding(password, sk)[1]
-        return 0, skDecrypted, ""
+        msgDict = self.extractKeys(response)
+        return msgDict
 
     def login(self, userName, password):
-        # type: (str, str) -> tuple
+        # type: (str, str) -> dict
         """
 
         Login as <userName> using <password>
@@ -235,38 +205,23 @@ class PriveAPIInstance:
 
         # Get VT
         vt = self.__getVT(userName, password)
-        if vt[0] == 1:
-            msgReturned = vt[2]
-            if msgReturned == "usrNotFound":
-                return "usrNotFound", 0
-            else:
-                raise Exception("Unhandled Message Returned (Error 2): {0}".format(msgReturned))
+        if vt["errorCode"] != "successful":
+            return vt
 
         # Get SK
-        skDecrypted = self.__checkVT(userName, password, vt[1])
-        if skDecrypted[0] == 1:
-            msgReturned = skDecrypted[2]
-            if msgReturned == "incorrect":
-                return "incorrect", 0
-            elif msgReturned == "usrNotFound":
-                return "usrNotFound2", 0
-            elif msgReturned == "accountLocked":
-                accountLockedTime = re.search(".+;timeBeforeUnlocking: (.+)", skDecrypted[1])
-                if not accountLockedTime:
-                    raise Exception("Error Parsing Received Message (Error 1)")
-                accountLockedTimeFloat = float(accountLockedTime.group(1))
-                return "accountLocked", accountLockedTimeFloat
-            else:
-                raise Exception("Unhandled Message Returned (Error 2): {0}".format(msgReturned))
+        skDecrypted = self.__checkVT(userName, password, self.decryptWithPadding(password,
+                                                                                 base64.b64decode(vt["vt"]))[1])
+        if skDecrypted["errorCode"] != "successful":
+            return skDecrypted
 
         # Import SK
-        self.loggedInSK = RSA.importKey(skDecrypted[1])
+        self.loggedInSK = RSA.importKey(self.decryptWithPadding(password, base64.b64decode(skDecrypted["sk"]))[1])
         if not self.loggedInSK:
             raise Exception("Error Importing RSA Key (Error 3)")
         self.loggedInUser = userName
         self.loggedIn = True
         self.loggedInPassword = password
-        return "successful", 0
+        return skDecrypted
 
     def deleteUser(self):
         # type: () -> str
@@ -277,7 +232,7 @@ class PriveAPIInstance:
         :return: errorMsg
         """
         if not self.loggedIn:
-            return "Not logged in"
+            raise Exception("Not logged in")
 
         textToSign = SHA256.new("delUser;name: " + self.loggedInUser)
         signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
@@ -290,21 +245,12 @@ class PriveAPIInstance:
             raise Exception("Error Communicating with Server (Error 0)")
         response = response[1]
 
-        msgDataExtracted = self.extractData(response)
-        msgErrorCode = msgDataExtracted[1]
-        if msgErrorCode == "":
-            raise Exception("Error Parsing Received Message (Error 1)")
-
-        if msgErrorCode == "successful":
-            self.loggedIn = False
-            self.loggedInSK = None
-            self.loggedInUser = ""
-
-        return msgErrorCode
+        msgDict = self.extractKeys(response)
+        return msgDict
 
     def updateKeys(self):
         if not self.loggedIn:
-            return "notLoggedIn"
+            raise Exception("Not logged in")
 
         newRSAKey = RSA.generate(self.keySize)
         newPKExported = newRSAKey.publickey().exportKey()
@@ -329,15 +275,12 @@ class PriveAPIInstance:
             raise Exception("Error Communicating with Server (Error 0)")
         response = response[1]
 
-        msgDataExtracted = self.extractData(response)
-        msgErrorCode = msgDataExtracted[1]
-        if msgErrorCode == "":
-            raise Exception("Error Parsing Received Message (Error 1)")
+        msgDict = self.extractKeys(response)
 
-        if msgErrorCode == "successful":
+        if msgDict["errorCode"] == "successful":
             self.loggedInSK = newRSAKey
 
-        return msgErrorCode
+        return msgDict
 
     def getUserPK(self, user):
         message = "getPK;name: {0}".format(user)
@@ -349,21 +292,39 @@ class PriveAPIInstance:
             raise Exception("Error Communicating with Server (Error 0)")
 
         response = response[1]
-        msgDataExtracted = self.extractData(response)
-        msgErrorCode = msgDataExtracted[1]
-        msgData = msgDataExtracted[0]
+        msgDict = self.extractKeys(response)
 
-        if msgErrorCode == "":
-            raise Exception("Error Parsing Received Message (Error 1)")
+        return msgDict
 
-        if not msgErrorCode == "successful":
-            return "", msgErrorCode
+    def addFile(self, fileName, fileContents, visibility="Public", encrypted=False):
+        if not self.loggedIn:
+            raise Exception("Not logged in")
 
-        msgDataRe = re.search("^pk;pk: (.+)$", msgData)
-        if not msgDataRe:
-            raise Exception("Error with Server Response (Error 2)")
+        if visibility != "Public" and visibility != "Hidden" and visibility != "Private":
+            raise Exception("Visibility unknown")
 
-        return msgDataRe.group(1), msgErrorCode
+        fileNameB64 = base64.b64encode(fileName)
+        if encrypted:
+            fileContents = self.encryptWithPadding(self.loggedInPassword, fileContents)[1]
+        fileContentsB64 = base64.b64encode(fileContents)
+
+        message = "add" + visibility + "File;name: " + self.loggedInUser + ";fileNameB64: " + fileNameB64 + ";fileB64: "
+        message = message + fileContentsB64
+
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(message))
+        message = message + ";signatureB64: " + signature
+
+        if not self.__sendMsg(message) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+
+        return msgDict
 
     def logout(self):
         self.loggedIn = False
@@ -520,3 +481,15 @@ class PriveAPIInstance:
         errorCode = msgRe.group(2)
 
         return msgData, errorCode
+
+    @staticmethod
+    def extractKeys(msg):
+        # type: (str) -> dict
+        msgSplit = msg.split(";")
+        returnDict = {}
+        for key in msgSplit:
+            regex = re.search("^(.+): (.+)$", key)
+            if regex:
+                returnDict[regex.group(1)] = regex.group(2)
+
+        return returnDict
