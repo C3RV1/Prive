@@ -144,7 +144,6 @@ class ClientHandle(threading.Thread):
         newUser = re.search("^newUser;name: (.+);pkB64: (.+);skAesB64: (.+);vtB64: (.+);vtAesB64: (.+)$",
                             decryptedMessage)
         if newUser:
-            msg = ""
             l_name = newUser.group(1)
             l_pkB64 = base64.b64decode(newUser.group(2))
             l_skAesB64 = newUser.group(3)
@@ -158,22 +157,17 @@ class ClientHandle(threading.Thread):
                                                                                         l_vtShaB64,
                                                                                         l_vtAesB64))
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "New User Registered!;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Already Exists;errorCode: usrAlreadyExists"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Invalid Name Characters;errorCode: invalidName"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid Private Key Characters;errorCode: invalidSK"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid Public Key Characters;errorCode: invalidPK"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Invalid Validation Token Characters;errorCode: invalidVT"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Invalid Encrypted Validation Token Characters;errorCode: invalidVTEnc"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            responseDict = {0: "msg: New User Registered!;errorCode: successful",
+                            1: "msg: User Already Exists;errorCode: usrAlreadyExists",
+                            2: "msg: Invalid Name Characters;errorCode: invalidName",
+                            3: "msg: Invalid Private Key Characters;errorCode: invalidSK",
+                            4: "msg: Invalid Public Key Characters;errorCode: invalidPK",
+                            5: "msg: Invalid Validation Token Characters;errorCode: invalidVT",
+                            6: "msg: Invalid Encrypted Validation Token Characters;errorCode: invalidVTEnc",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
+
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
+
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
@@ -186,16 +180,13 @@ class ClientHandle(threading.Thread):
             l_databaseQueryResult = self.databaseManager.executeFunction("getVTAesB64", (l_name,))
 
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
-            msg = ""
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "vtAesB64;vt: " + l_databaseQueryResult[1] + ";errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "User Without VtAESB64;errorCode: wtfHappenedToTheVTEnc"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            responseDict = {0: "msg: Returning vtAesB64;vt: " + l_databaseQueryResult[1] + ";errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: User Without VtAesB64;errorCode: userWithoutVtEnc",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
+
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -213,29 +204,26 @@ class ClientHandle(threading.Thread):
                                                                                      l_newVTSha, l_newVTEnc))
 
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
-            msg = ""
 
             if l_databaseQueryErrorCode == 0:
                 l_skAesB64 = self.databaseManager.executeFunction("getSK", (l_name,))
                 l_skAesB64ErrorCode = l_skAesB64[0]
-                if l_skAesB64ErrorCode == 0:
-                    msg = "VT Correct!;sk: " + l_skAesB64[1] + ";errorCode: successful"
-                elif l_skAesB64ErrorCode == 1:
-                    msg = "User Without SK;errorCode: wtfHappenedToTheSK"
-                elif l_skAesB64ErrorCode == 2:
-                    msg = "Impossible Exception;errorCode: somethingIsWrong"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "Incorrect VT;errorCode: incorrect"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "User Without VT;errorCode: wtfHappenedToTheVTSha"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid Validation Token Characters;errorCode: invalidVT"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Account Locked;timeBeforeUnlocking: " + str(l_databaseQueryResult[1]) + ";errorCode: accountLocked"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+
+                responseDict = {0: "msg: VT Correct!;sk: " + l_skAesB64[1] + ";errorCode: successful",
+                                1: "msg: User Without SK;errorCode: userWithoutSK",
+                                2: "msg: User Deleted Before getSK execution;errorCode: userDeletedBeforeExecution",
+                                -1: "msg: Server Panic 2!;errorCode: serverPanic2"}
+
+                msg = responseDict.get(l_skAesB64ErrorCode, "msg: Bad Error Code 2;errorCode: badErrorCode2")
+            else:
+                responseDict = {1: "msg: Incorrect VT;errorCode: incorrect",
+                                2: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                                3: "msg: User Without VT;errorCode: userWithoutVt",
+                                4: "msg: Invalid Validation Token Characters;errorCode: invalidVT",
+                                5: "msg: Account Locked;timeBeforeUnlocking: " + str(l_databaseQueryResult[1]) + ";errorCode: accountLocked",
+                                -1: "msg: Server Panic!;errorCode: serverPanic"}
+
+                msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -249,16 +237,11 @@ class ClientHandle(threading.Thread):
 
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            msg = ""
+            responseDict = {0: "msg: Returning pk;pk: " + l_databaseQueryResult[1] + ";errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: User Without PK;errorCode: userWithoutPK"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "pk;pk: " + l_databaseQueryResult[1] + ";errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "User Without PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -271,22 +254,15 @@ class ClientHandle(threading.Thread):
 
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("delUser", (l_name, l_signatureB64))
 
-            msg = ""
+            responseDict = {0: "msg: User Deleted Successfully;errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: User Without PK;errorCode: userWithoutPK",
+                            3: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            4: "msg: Faulty Signature;errorCode: invalidSign",
+                            5: "msg: Error Importing User PK;errorCode: faultyPK",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "User Deleted Successfully;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "User Without PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -305,26 +281,17 @@ class ClientHandle(threading.Thread):
                                                                                            l_newPK,
                                                                                            l_newSKAesB64))
 
-            msg = ""
+            responseDict = {0: "msg: Keys Updated;errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            3: "msg: Invalid newSKAesB64 Characters;errorCode: invalidNewSKAesB64",
+                            4: "msg: Invalid newPK Format or Characters;errorCode: invalidNewPK",
+                            5: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            6: "msg: Error Importing User PK;errorCode: faultyPK",
+                            7: "msg: Faulty Signature;errorCode: invalidSign",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "Keys Updated;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid newSKAesB64 Characters;errorCode: invalidNewSKAesB64"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid newPK Format or Characters;errorCode: invalidNewPK"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 7:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -342,33 +309,22 @@ class ClientHandle(threading.Thread):
                                                                                               l_fileB64,
                                                                                               l_signatureB64))
 
-            msg = ""
+            responseDict = {0: "msg: File Added;errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Invalid Filename Characters;errorCode: invalidFilename",
+                            3: "msg: Invalid File Characters;errorCode: invalidFileCharacters",
+                            4: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            5: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            6: "msg: Error Importing User PK;errorCode: faultyPK",
+                            7: "msg: Faulty Signature;errorCode: invalidSign",
+                            8: "msg: Missing Public File List;errorCode: missingPUFL",
+                            9: "msg: File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
+                                self.databaseManager.maxFileSize),
+                            10: "msg: Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(
+                                self.databaseManager.maxFiles),
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "File Added;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Invalid Filename Characters;errorCode: invalidFilename"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid File Characters;errorCode: invalidFileCharacters"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 7:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == 8:
-                msg = "Missing Public File List;errorCode: missingPUFL"
-            elif l_databaseQueryErrorCode == 9:
-                msg = "File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
-                    self.databaseManager.maxFileSize)
-            elif l_databaseQueryErrorCode == 10:
-                msg = "Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(self.databaseManager.maxFiles)
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -386,33 +342,22 @@ class ClientHandle(threading.Thread):
                                                                                               l_fileB64,
                                                                                               l_signatureB64))
 
-            msg = ""
+            responseDict = {0: "msg: File Added;errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Invalid Filename Characters;errorCode: invalidFilename",
+                            3: "msg: Invalid File Characters;errorCode: invalidFileCharacters",
+                            4: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            5: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            6: "msg: Error Importing User PK;errorCode: faultyPK",
+                            7: "msg: Faulty Signature;errorCode: invalidSign",
+                            8: "msg: Missing Hidden File List;errorCode: missingHFL",
+                            9: "msg: File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
+                                self.databaseManager.maxFileSize),
+                            10: "msg: Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(
+                                self.databaseManager.maxFiles),
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "File Added;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Invalid Filename Characters;errorCode: invalidFilename"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid File Characters;errorCode: invalidFileCharacters"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 7:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == 8:
-                msg = "Missing Public File List;errorCode: missingPUFL"
-            elif l_databaseQueryErrorCode == 9:
-                msg = "File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
-                    self.databaseManager.maxFileSize)
-            elif l_databaseQueryErrorCode == 10:
-                msg = "Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(self.databaseManager.maxFiles)
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -430,36 +375,25 @@ class ClientHandle(threading.Thread):
                                                                                                l_fileB64,
                                                                                                l_signatureB64))
 
-            msg = ""
+            responseDict = {0: "msg: File Added;errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Invalid Filename Characters;errorCode: invalidFilename",
+                            3: "msg: Invalid File Characters;errorCode: invalidFileCharacters",
+                            4: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            5: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            6: "msg: Error Importing User PK;errorCode: faultyPK",
+                            7: "msg: Faulty Signature;errorCode: invalidSign",
+                            8: "msg: Missing Private File List;errorCode: missingPRFL",
+                            9: "msg: File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
+                                self.databaseManager.maxFileSize),
+                            10: "msg: Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(
+                                self.databaseManager.maxFiles),
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "File Added;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Invalid Filename Characters;errorCode: invalidFilename"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid File Characters;errorCode: invalidFileCharacters"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 7:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == 8:
-                msg = "Missing Public File List;errorCode: missingPUFL"
-            elif l_databaseQueryErrorCode == 9:
-                msg = "File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
-                    self.databaseManager.maxFileSize)
-            elif l_databaseQueryErrorCode == 10:
-                msg = "Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(self.databaseManager.maxFiles)
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
-                self.send(msg, encrypted=True, key=sessionKey)
-                return False
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
 
         getPublicFileList = re.search("^getPublicFileList;name: (.+)$", decryptedMessage)
 
@@ -469,16 +403,12 @@ class ClientHandle(threading.Thread):
             l_databaseQueryResult = self.databaseManager.executeFunction("getPublicFileList", (l_name,))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            msg = ""
+            responseDict = {0: "msg: Returning PUFL;pufl: " + l_databaseQueryResult[1] + ";errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Missing Public File List;errorCode: missingHFL",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "Returning PUFL;pufl: " + l_databaseQueryResult[1] + ";errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Missing Public File List;errorCode: missingPUFL"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -493,24 +423,16 @@ class ClientHandle(threading.Thread):
                                                                                                l_signatureB64))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            msg = ""
+            responseDict = {0: "msg: Returning HFL;hfl: " + l_databaseQueryResult[1] + ";errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Missing Hidden File List;errorCode: missingHFL",
+                            3: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            4: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            5: "msg: Error Importing User PK;errorCode: faultyPK",
+                            6: "msg: Faulty Signature;errorCode: invalidSign",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "Returning HFL;hfl: " + l_databaseQueryResult[1] + ";errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Missing Hidden File List;errorCode: missingHFL"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -525,24 +447,16 @@ class ClientHandle(threading.Thread):
                                                                                                 l_signatureB64))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            msg = ""
+            responseDict = {0: "msg: Returning PRFL;prfl: " + l_databaseQueryResult[1] + ";errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Missing Private File List;errorCode: missingPRFL",
+                            3: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            4: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            5: "msg: Error Importing User PK;errorCode: faultyPK",
+                            6: "msg: Faulty Signature;errorCode: invalidSign",
+                            -1: "msg: Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "Returning PRFL;prfl: " + l_databaseQueryResult[1] + ";errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Missing Private File List;errorCode: missingPRFL"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -556,24 +470,16 @@ class ClientHandle(threading.Thread):
             l_databaseQueryResult = self.databaseManager.executeFunction("getFile", (l_name, l_id))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            msg = ""
+            responseDict = {0: "msg: Returning fileB64;fileB64: " + l_databaseQueryErrorCode[1] + ";errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Missing Public File List;errorCode: missingPUFL",
+                            3: "msg: Missing Hidden File List;errorCode: missingHFL",
+                            4: "msg: Invalid Id Characters;errorCode: invalidIdCh",
+                            5: "msg: File in a list but nonexistent;errorCode: fileInListButNonexistent",
+                            6: "msg: File not found;errorCode: fileNotFound",
+                            -1: "msg: Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "Returning fileB64;fileB64: " + l_databaseQueryErrorCode[1] + ";errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Missing Public File List;errorCode: missingPUFL"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Missing Hidden File List;errorCode: missingHFL"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid Id Characters;errorCode: invalidIdCh"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "File in a list but nonexistent;errorCode: fileInListButNonexistent"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "File not found;errorCode: fileNotFound"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -589,30 +495,19 @@ class ClientHandle(threading.Thread):
                                                                                             l_signatureB64))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            msg = ""
+            responseDict = {0: "msg: Returning fileB64;fileB64: " + l_databaseQueryErrorCode[1] + ";errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK",
+                            3: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            4: "msg: Invalid Id Characters;errorCode: invalidIdCh",
+                            5: "msg: Missing Private File List;errorCode: missingPRFL",
+                            6: "msg: Error Importing User PK;errorCode: faultyPK",
+                            7: "msg: Faulty Signature;errorCode: invalidSign",
+                            8: "msg: File not found;errorCode: fileNotFound",
+                            9: "msg: File in a list but nonexistent;errorCode: fileInListButNonexistent",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "Returning fileB64;fileB64: " + l_databaseQueryErrorCode[1] + ";errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Invalid Id Characters;errorCode: invalidIdCh"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Missing Private File List;errorCode: missingPRFL"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 7:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == 8:
-                msg = "File not found;errorCode: fileNotFound"
-            elif l_databaseQueryErrorCode == 9:
-                msg = "File in a list but nonexistent;errorCode: fileInListButNonexistent"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False
@@ -627,34 +522,21 @@ class ClientHandle(threading.Thread):
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("deleteFile", (l_name, l_id,
                                                                                            l_signatureB64))
 
-            msg = ""
+            responseDict = {0: "msg: File Deleted;errorCode: successful",
+                            1: "msg: User Doesn't Exist;errorCode: usrNotFound",
+                            2: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
+                            3: "msg: Invalid Id Characters;errorCode: invalidIdCh",
+                            4: "msg: Missing Public File List;errorCode: missingPUFL",
+                            5: "msg: Missing Hidden File List;errorCode: missingHFL",
+                            6: "msg: Missing Private File List;errorCode: missingPRFL",
+                            7: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            8: "msg: Error Importing User PK;errorCode: faultyPK",
+                            9: "msg: Faulty Signature;errorCode: invalidSign",
+                            10: "msg: File not found;errorCode: fileNotFound",
+                            11: "msg: File in a list but nonexistent;errorCode: fileInListButNonexistent",
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
 
-            if l_databaseQueryErrorCode == 0:
-                msg = "fileDeleted;errorCode: successful"
-            elif l_databaseQueryErrorCode == 1:
-                msg = "User Doesn't Exist;errorCode: usrNotFound"
-            elif l_databaseQueryErrorCode == 2:
-                msg = "Invalid Signature Characters;errorCode: invalidSignCh"
-            elif l_databaseQueryErrorCode == 3:
-                msg = "Invalid Id Characters;errorCode: invalidIdCh"
-            elif l_databaseQueryErrorCode == 4:
-                msg = "Missing Public File List;errorCode: missingPUFL"
-            elif l_databaseQueryErrorCode == 5:
-                msg = "Missing Hidden File List;errorCode: missingHFL"
-            elif l_databaseQueryErrorCode == 6:
-                msg = "Missing Private File List;errorCode: missingPRFL"
-            elif l_databaseQueryErrorCode == 7:
-                msg = "Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK"
-            elif l_databaseQueryErrorCode == 8:
-                msg = "Error Importing User PK;errorCode: faultyPK"
-            elif l_databaseQueryErrorCode == 9:
-                msg = "Faulty Signature;errorCode: invalidSign"
-            elif l_databaseQueryErrorCode == 10:
-                msg = "File not found;errorCode: fileNotFound"
-            elif l_databaseQueryErrorCode == 11:
-                msg = "File in a list but nonexistent;errorCode: fileInListButNonexistent"
-            elif l_databaseQueryErrorCode == -1:
-                msg = "Server Panic!;errorCode: thisShouldNeverBeSeenByAnyone"
+            msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
 
             self.send(msg, encrypted=True, key=sessionKey)
             return False

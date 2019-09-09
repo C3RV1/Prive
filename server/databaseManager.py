@@ -412,8 +412,8 @@ class DatabaseManager(threading.Thread):
         return 1, 0
 
     def getSk_(self, name):
-        #type: (str) -> tuple
-        retValue = (-1, "")
+        #type: (str) -> list
+        retValue = [-1, ""]
         try:
             retValue = self.__getSk_(name)
         except:
@@ -421,22 +421,22 @@ class DatabaseManager(threading.Thread):
         return retValue
 
     def __getSk_(self, name):
-        #type: (str) -> tuple
+        #type: (str) -> list
         # Returns errorCode, skb64
         # Error Codes (0 - All Correct,
         #              1 - Strange Error where there isn't private key,
         #              2 - User Doesn't Exist)
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
-            return 2, ""
+            return [2, ""]
 
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64"):
-            return 1, ""
+            return [1, ""]
 
         skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "r")
         sk = skFile.read()
 
-        return 0, sk
+        return [0, sk]
 
     def getPk(self, name):
         #type: (str) -> tuple
