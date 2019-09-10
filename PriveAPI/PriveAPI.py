@@ -100,7 +100,7 @@ class PriveAPIInstance:
         return
 
     def createUser(self, userName, password):
-        # type: (str, str) -> str
+        # type: (str, str) -> dict
         """
 
         Creates User with userName param as name and password param as password
@@ -115,6 +115,8 @@ class PriveAPIInstance:
         publicKey = base64.b64encode(rsaKeys.publickey().exportKey())
 
         # Padding Password
+        if len(password) > 16:
+            raise
         pwdLength = 16 - password.__len__()
         password = password + chr(pwdLength) * pwdLength
 
@@ -209,13 +211,13 @@ class PriveAPIInstance:
             return vt
 
         # Get SK
-        skDecrypted = self.__checkVT(userName, password, self.decryptWithPadding(password,
-                                                                                 base64.b64decode(vt["vt"]))[1])
+        skDecrypted = self.__checkVT(userName, password, base64.b64encode(self.decryptWithPadding(password,
+                                                                                                  vt["vt"])[1]))
         if skDecrypted["errorCode"] != "successful":
             return skDecrypted
 
         # Import SK
-        self.loggedInSK = RSA.importKey(self.decryptWithPadding(password, base64.b64decode(skDecrypted["sk"]))[1])
+        self.loggedInSK = RSA.importKey(self.decryptWithPadding(password, skDecrypted["sk"])[1])
         if not self.loggedInSK:
             raise Exception("Error Importing RSA Key (Error 3)")
         self.loggedInUser = userName
@@ -224,7 +226,7 @@ class PriveAPIInstance:
         return skDecrypted
 
     def deleteUser(self):
-        # type: () -> str
+        # type: () -> dict
         """
 
         Deletes User if Logged In
@@ -471,9 +473,6 @@ class PriveAPIInstance:
 
         msgDict = self.extractKeys(response)
         return msgDict
-
-    def deleteFile(self):
-        pass
 
     def logout(self):
         self.loggedIn = False
