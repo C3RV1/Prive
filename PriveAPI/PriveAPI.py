@@ -413,6 +413,43 @@ class PriveAPIInstance:
         filesDict.update(self.extractFiles(msgDict["prfl"], visibility="Private"))
         return filesDict
 
+    def getFile(self, fileDict, user=""):
+        if user == "":
+            user = self.loggedInUser
+
+        if fileDict["visibility"] == "Private":
+            return self.__getPrivateFile(user, fileDict)
+
+        getFileMessage = "getFile;name: " + user + ";id: " + fileDict["id"]
+
+        if not self.__sendMsg(getFileMessage) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+        return msgDict
+
+    def __getPrivateFile(self, user, fileDict):
+        getPrivateFileMessage = "getPrivateFile;name: " + user + ";id: " + fileDict["id"]
+        textToSign = SHA256.new(getPrivateFileMessage)
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        getPrivateFileMessage = getPrivateFileMessage + ";signatureB64: " + signature
+
+        if not self.__sendMsg(getPrivateFileMessage) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+        return msgDict
+
     def logout(self):
         self.loggedIn = False
         self.loggedInSK = None
@@ -589,5 +626,6 @@ class PriveAPIInstance:
             regex = re.search("fileName: (.+).id: (.+)", i)
             if regex:
                 returnDict[regex.group(2)] = {"name": base64.b64decode(regex.group(1)),
-                                              "visibility": visibility}
+                                              "visibility": visibility,
+                                              "id": regex.group(2)}
         return returnDict
