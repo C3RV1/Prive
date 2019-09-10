@@ -679,7 +679,7 @@ class DatabaseManager(threading.Thread):
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
             publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
-            publicFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            publicFileList.write("fileName: {0}.id: {1},".format(fileNameB64, randomIdB64))
             publicFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
@@ -696,7 +696,7 @@ class DatabaseManager(threading.Thread):
             retValue = self.__addHiddenFile(user, fileNameB64, fileB64, signatureB64)
         except:
             self.log("Error addHiddenFile", error=True)
-        return  retValue
+        return retValue
 
     def __addHiddenFile(self, user, fileNameB64, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
@@ -771,7 +771,7 @@ class DatabaseManager(threading.Thread):
 
             hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
                                   "a")  # Stands for Hidden File List (HFL)
-            hiddenFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            hiddenFileList.write("fileName: {0}.id: {1},".format(fileNameB64, randomIdB64))
             hiddenFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -865,7 +865,7 @@ class DatabaseManager(threading.Thread):
 
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
                                    "a")  # Stands for Private File List (PRFL)
-            privateFileList.write("fileName: {0};id: {1},".format(fileNameB64, randomIdB64))
+            privateFileList.write("fileName: {0}.id: {1},".format(fileNameB64, randomIdB64))
             privateFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -1069,11 +1069,11 @@ class DatabaseManager(threading.Thread):
 
         allIds = []
         for i in publicFileListContentsSplit:
-            idRe = re.search("fileName: .+;id: (.+)", i)
+            idRe = re.search("fileName: .+.id: (.+)", i)
             if idRe:
                 allIds.append(idRe.group(1))
         for i in hiddenFileListContentsSplit:
-            idRe = re.search("fileName: .+;id: (.+)", i)
+            idRe = re.search("fileName: .+.id: (.+)", i)
             if idRe:
                 allIds.append(idRe.group(1))
 
@@ -1152,7 +1152,7 @@ class DatabaseManager(threading.Thread):
 
             allIds = []
             for i in privateFileListSplit:
-                idRe = re.search("filename: .+;id: (.+)", i)
+                idRe = re.search("filename: .+.id: (.+)", i)
                 if idRe:
                     allIds.append(idRe.group(1))
 
@@ -1245,7 +1245,7 @@ class DatabaseManager(threading.Thread):
             index = 0
 
             for i in range(0, len(publicFileListSplitComma)):
-                idRe = re.search("fileName: .+;id: " + fileIdB64, publicFileListSplitComma[i])
+                idRe = re.search("fileName: .+.id: " + fileIdB64, publicFileListSplitComma[i])
                 if idRe:
                     found = True
                     index = i
@@ -1255,7 +1255,7 @@ class DatabaseManager(threading.Thread):
                 publicFileListSplitComma.pop(index)
             else:
                 for i in range(0, len(hiddenFileListSplitComma)):
-                    idRe = re.search("fileName: .+;id: " + fileIdB64, hiddenFileListSplitComma[i])
+                    idRe = re.search("fileName: .+.id: " + fileIdB64, hiddenFileListSplitComma[i])
                     if idRe:
                         found = True
                         index = i
@@ -1264,7 +1264,7 @@ class DatabaseManager(threading.Thread):
                     hiddenFileListSplitComma.pop(index)
                 else:
                     for i in range(0, len(privateFileListSplitComma)):
-                        idRe = re.search("fileName: .+;id: " + fileIdB64, privateFileListSplitComma[i])
+                        idRe = re.search("fileName: .+.id: " + fileIdB64, privateFileListSplitComma[i])
                         if idRe:
                             found = True
                             index = i

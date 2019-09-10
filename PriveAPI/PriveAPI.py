@@ -310,8 +310,9 @@ class PriveAPIInstance:
 
         message = "add" + visibility + "File;name: " + self.loggedInUser + ";fileNameB64: " + fileNameB64 + ";fileB64: "
         message = message + fileContentsB64
+        textToSign = SHA256.new(message)
 
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(message))
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         message = message + ";signatureB64: " + signature
 
         if not self.__sendMsg(message) == 0:
@@ -325,6 +326,92 @@ class PriveAPIInstance:
         msgDict = self.extractKeys(response)
 
         return msgDict
+
+    def getFiles(self, user=""):
+        if user == "":
+            return self.__getFiles()
+        publicFileListMessage = "getPublicFileList;name: " + user
+
+        if not self.__sendMsg(publicFileListMessage) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+
+        if msgDict["errorCode"] != "successful":
+            return msgDict
+
+        filesDict = self.extractFiles(msgDict["pufl"], visibility="Public")
+        filesDict["errorCode"] = "successful"
+
+        return filesDict
+
+    def __getFiles(self):
+        if not self.loggedIn:
+            raise Exception("Not logged in")
+
+        publicFileListMessage = "getPublicFileList;name: " + self.loggedInUser
+
+        if not self.__sendMsg(publicFileListMessage) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+
+        if msgDict["errorCode"] != "successful":
+            return msgDict
+
+        filesDict = self.extractFiles(msgDict["pufl"], visibility="Public")
+        filesDict["errorCode"] = "successful"
+
+        hiddenFileListMessage = "getHiddenFileList;name: " + self.loggedInUser
+        textToSign = SHA256.new(hiddenFileListMessage)
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        hiddenFileListMessage = hiddenFileListMessage + ";signatureB64: " + signature
+
+        if not self.__sendMsg(hiddenFileListMessage) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+
+        if msgDict["errorCode"] != "successful":
+            return msgDict
+
+        filesDict.update(self.extractFiles(msgDict["hfl"], visibility="Hidden"))
+
+        privateFileListMessage = "getPrivateFileList;name: " + self.loggedInUser
+        textToSign = SHA256.new(privateFileListMessage)
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        hiddenFileListMessage = privateFileListMessage + ";signatureB64: " + signature
+
+        if not self.__sendMsg(hiddenFileListMessage) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+
+        if msgDict["errorCode"] != "successful":
+            return msgDict
+
+        filesDict.update(self.extractFiles(msgDict["prfl"], visibility="Private"))
+        return filesDict
 
     def logout(self):
         self.loggedIn = False
@@ -492,4 +579,15 @@ class PriveAPIInstance:
             if regex:
                 returnDict[regex.group(1)] = regex.group(2)
 
+        return returnDict
+
+    @staticmethod
+    def extractFiles(fileList, visibility):
+        fileListSplit = fileList.split(",")[1:-1]
+        returnDict = {}
+        for i in fileListSplit:
+            regex = re.search("fileName: (.+).id: (.+)", i)
+            if regex:
+                returnDict[regex.group(2)] = {"name": base64.b64decode(regex.group(1)),
+                                              "visibility": visibility}
         return returnDict
