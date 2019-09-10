@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='PriveAPI',
-      version='1.3',
+      version='2.0',
       description='API to create programs compatible with Prive',
       keywords='prive',
       url='http://github.com/c3rv1/Prive',
