@@ -415,6 +415,8 @@ class PriveAPIInstance:
 
     def getFile(self, fileDict, user=""):
         if user == "":
+            if not self.loggedIn:
+                raise Exception("Not logged in")
             user = self.loggedInUser
 
         if fileDict["visibility"] == "Private":
@@ -449,6 +451,29 @@ class PriveAPIInstance:
 
         msgDict = self.extractKeys(response)
         return msgDict
+
+    def deleteFile(self, fileDict):
+        if not self.loggedIn:
+            raise Exception("Not logged in")
+
+        deleteFileMessage = "deleteFile;name: " + self.loggedInUser + ";id: " + fileDict["id"]
+        textToSign = SHA256.new(deleteFileMessage)
+        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        deleteFileMessage = deleteFileMessage + "signatureB64: " + signature
+
+        if not self.__sendMsg(deleteFileMessage) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        response = self.__receiveResponse()
+        if response[0] == 1:
+            raise Exception("Error Communicating with Server (Error 0)")
+        response = response[1]
+
+        msgDict = self.extractKeys(response)
+        return msgDict
+
+    def deleteFile(self):
+        pass
 
     def logout(self):
         self.loggedIn = False
