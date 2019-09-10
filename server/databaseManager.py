@@ -262,7 +262,7 @@ class DatabaseManager(threading.Thread):
         #                      5 - " " Validation Token,
         #                      6 - " " Validation Token Encrypted)
 
-        if re.search(".*[" + self.unacceptedNameCharacters + "].*", name):
+        if not re.search(self.unacceptedNameCharacters, name):
             return 2
 
         if os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
