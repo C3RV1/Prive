@@ -298,7 +298,7 @@ class PriveAPIInstance:
 
         return msgDict
 
-    def addFile(self, fileName, fileContents, visibility="Public", encrypted=False):
+    def addFile(self, fileName, fileContents, visibility="Public"):
         if not self.loggedIn:
             raise Exception("Not logged in")
 
@@ -306,7 +306,7 @@ class PriveAPIInstance:
             raise Exception("Visibility unknown")
 
         fileNameB64 = base64.b64encode(fileName)
-        if encrypted:
+        if visibility == "Private":
             fileContents = self.encryptWithPadding(self.loggedInPassword, fileContents)[1]
         fileContentsB64 = base64.b64encode(fileContents)
 
@@ -435,6 +435,8 @@ class PriveAPIInstance:
         response = response[1]
 
         msgDict = self.extractKeys(response)
+        if msgDict["errorCode"] == "successful":
+            msgDict["file"] = base64.b64decode(msgDict["fileB64"])
         return msgDict
 
     def __getPrivateFile(self, user, fileDict):
@@ -452,6 +454,8 @@ class PriveAPIInstance:
         response = response[1]
 
         msgDict = self.extractKeys(response)
+        if msgDict["errorCode"] == "successful":
+            msgDict["file"] = self.decryptWithPadding(self.loggedInPassword, base64.b64decode(msgDict["fileB64"]))[1]
         return msgDict
 
     def deleteFile(self, fileDict):
