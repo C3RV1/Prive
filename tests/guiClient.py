@@ -1,5 +1,9 @@
 from Tkinter import *
+import ttk
+import tkFileDialog
 import PriveAPI
+import os
+import base64
 
 class ValidatingEntry(Entry):
     # base class for validating entry widgets
@@ -50,7 +54,7 @@ class App:
                                      "loggedInFrame": "400x200"}
 
     def run(self):
-        self.mainWindow = Tk()
+        self.mainWindow = Tk(className="Prive File Upload")
 
         self.mainWindow.geometry("400x200")
 
@@ -107,7 +111,7 @@ class App:
         blankLine.grid(row=1, column=0)
 
         self.loggedInFrameWidgets["uploadFileButton"] = Button(self.frames["loggedInFrame"], text="Upload file",
-                                                               font=("Arial", 16))
+                                                               font=("Arial", 16), command=self.uploadFile)
         self.loggedInFrameWidgets["uploadFileButton"].grid(row=2, column=0)
 
         self.loggedInFrameWidgets["downloadFileButton"] = Button(self.frames["loggedInFrame"], text="Download file",
@@ -131,7 +135,7 @@ class App:
         loginToplevel = Toplevel(self.mainWindow)
         loginToplevel.grab_set()
         loginToplevel.title("Sign in")
-        loginToplevel.geometry("250x150")
+        loginToplevel.geometry("250x100")
 
         usernameLabel = Label(loginToplevel, text="Username: ", font=("Arial", 14))
         usernameLabel.grid(row=0, column=0)
@@ -154,7 +158,7 @@ class App:
         registerTopLevel = Toplevel(self.mainWindow)
         registerTopLevel.grab_set()
         registerTopLevel.title("Register")
-        registerTopLevel.geometry("300x150")
+        registerTopLevel.geometry("300x130")
 
         usernameLabel = Label(registerTopLevel, text="Username: ", font=("Arial", 14))
         usernameLabel.grid(row=0, column=0)
@@ -179,21 +183,84 @@ class App:
         errorLabel = Label(registerTopLevel, text="", font=("Arial", 10))
         errorLabel.grid(row=4, column=0, columnspan=3)
 
+    def uploadFile(self):
+        uploadFileToplevel = Toplevel(self.mainWindow)
+        uploadFileToplevel.grab_set()
+        uploadFileToplevel.title("Upload file")
+        uploadFileToplevel.geometry("350x120")
+
+        pathLabel = Label(uploadFileToplevel, text="Path: ", font=("Arial", 14))
+        pathLabel.grid(row=0, column=0)
+        pathEntry = Entry(uploadFileToplevel, font=("Arial", 14))
+        pathEntry.grid(row=0, column=1)
+        pathButton = Button(uploadFileToplevel, text="...", font=("Arial", 14),
+                            command=lambda: self.setPathButton(pathEntry))
+        pathButton.grid(row=0, column=2, sticky=W)
+
+        visibilityMenu = ttk.Combobox(uploadFileToplevel, font=("Arial", 14), state="readonly",
+                                      values=["Public", "Hidden", "Private"])
+        visibilityMenu.current(0)
+        visibilityMenu.grid(row=1, column=1)
+
+        uploadButton = Button(uploadFileToplevel, text="Upload", font=("Arial", 14),
+                              command=lambda: self.doUploadFile(uploadFileToplevel, visibilityMenu, pathEntry,
+                                                                errorLabel))
+        uploadButton.grid(row=2, column=1)
+
+        errorLabel = Label(uploadFileToplevel, text="", font=("Arial", 12))
+        errorLabel.grid(row=3, column=0, columnspan=4)
+
+    def doUploadFile(self, uploadFileTopLevel, visibility, pathEntry, errorLabel):
+        # type: (Toplevel, ttk.Combobox, Entry, Label) -> None
+        pathFile = pathEntry.get()
+        uploadFileTopLevel.geometry("350x140")
+        if not os.path.isfile(pathFile):
+            errorLabel.config(text="File not found", fg="red")
+            return
+        errorLabel.config(text="Please wait...", fg="black")
+        uploadFileTopLevel.update_idletasks()
+        fileObject = open(pathEntry.get(), "rb")
+        fileString = fileObject.read()
+        try:
+            queryResult = self.priveConnection.addFile(os.path.basename(pathFile), fileString,
+                                                       visibility=visibility.get())
+        except Exception as e:
+            queryResult = {"errorCode": e.message}
+        if queryResult["errorCode"] == "successful":
+            errorLabel.config(text="File uploaded", fg="green")
+        else:
+            errorLabel.config(text="Error {}".format(queryResult["msg"]), fg="red")
+
+    def setPathButton(self, pathEntry):
+        # type: (Entry) -> None
+        pathEntry.delete(0, END)
+        pathEntry.insert(0, tkFileDialog.askopenfilename())
+
     def doLogin(self, loginTopLevel, usernameEntry, passwordEntry, errorLabel):
         # type: (Toplevel, Entry, Entry, Label) -> None
-        queryResult = self.priveConnection.login(usernameEntry.get(), passwordEntry.get())
+        try:
+            queryResult = self.priveConnection.login(usernameEntry.get(), passwordEntry.get())
+        except Exception as e:
+            queryResult = {"errorCode": e.message}
         if queryResult["errorCode"] == "successful" and self.priveConnection.loggedIn:
             loginTopLevel.destroy()
             self.loggedInFrameWidgets["loggedInText"].config(text="Logged in as " + self.priveConnection.loggedInUser)
             self.setActiveFrame("loggedInFrame")
         else:
             errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
+            loginTopLevel.geometry("250x150")
 
     def doRegister(self, registerToplevel, usernameEntry, passwordEntry, confirmPasswordEntry, errorLabel):
         if passwordEntry.get() != confirmPasswordEntry.get():
             errorLabel.config(text="Error: Password doesn't match", fg="red")
             return
-        queryResult = self.priveConnection.createUser(usernameEntry.get(), passwordEntry.get())
+        registerToplevel.geometry("300x150")
+        errorLabel.config(text="Please wait...", fg="black")
+        registerToplevel.update_idletasks()
+        try:
+            queryResult = self.priveConnection.createUser(usernameEntry.get(), passwordEntry.get())
+        except Exception as e:
+            queryResult = {"errorCode": e.message}
         if queryResult["errorCode"] == "successful":
             errorLabel.config(text="Register successful", fg="green")
         else:
