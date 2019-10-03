@@ -7,9 +7,15 @@ import re
 def lineno():
     return inspect.currentframe().f_back.f_lineno
 
+def base64_encode(str):
+    return base64.b64encode(str).replace("/", "_")
+
+def base64_decode(str):
+    return base64.b64decode(str.replace("_", "/"))
+
 def isBase64(s):
     try:
-        return base64.b64encode(base64.b64decode(s)) == s
+        return base64_encode(base64_decode(s)) == s
     except Exception:
         return False
 

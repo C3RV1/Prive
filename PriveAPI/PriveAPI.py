@@ -10,6 +10,7 @@ import socket
 import re
 import time
 import threading
+import utils
 
 
 class AutoKeepAlive(threading.Thread):
@@ -72,7 +73,7 @@ class PriveAPIInstance:
 
         # Encrypt Session Key & Turn to B64
         sessionKeyEncrypted = PKCS1_OAEP.new(self.serverPublicKey).encrypt(self.sessionKey)
-        sessionKeyB64 = base64.b64encode(sessionKeyEncrypted)
+        sessionKeyB64 = utils.base64_encode(sessionKeyEncrypted)
 
         # Message
         msg = "sessionkey: " + sessionKeyB64 + "\r\n"
@@ -112,7 +113,7 @@ class PriveAPIInstance:
         # Generate RSA Keys
         rsaKeys = RSA.generate(self.keySize)
         privateKey = rsaKeys.exportKey()
-        publicKey = base64.b64encode(rsaKeys.publickey().exportKey())
+        publicKey = utils.base64_encode(rsaKeys.publickey().exportKey())
 
         # Padding Password
         if len(password) > 16:
@@ -127,7 +128,7 @@ class PriveAPIInstance:
         # Encrypt & B64
         privateKeyEncrypted = self.encryptWithPadding(password, privateKey)[1]
         vtEncrypted = self.encryptWithPadding(password, vt)[1]
-        vtShaB64 = base64.b64encode(vtSha)
+        vtShaB64 = utils.base64_encode(vtSha)
 
         # Create Message
         message = "newUser;name: " + userName + ";pkB64: " + publicKey + ";skAesB64: "
@@ -174,7 +175,7 @@ class PriveAPIInstance:
 
         # Encrypt & B64
         newvtEncrypted = self.encryptWithPadding(password, newvt)[1]
-        newvtShaB64 = base64.b64encode(newvtSha.digest())
+        newvtShaB64 = utils.base64_encode(newvtSha.digest())
 
         message = "checkVT;name: " + userName + ";vt: " + vtDecrypted + ";newVTSha: " + newvtShaB64 + ";newVTEnc: "
         message = message + newvtEncrypted
@@ -211,7 +212,7 @@ class PriveAPIInstance:
             return vt
 
         # Get SK
-        skDecrypted = self.__checkVT(userName, password, base64.b64encode(self.decryptWithPadding(password,
+        skDecrypted = self.__checkVT(userName, password, utils.base64_encode(self.decryptWithPadding(password,
                                                                                                   vt["vt"])[1]))
         if skDecrypted["errorCode"] != "successful":
             return skDecrypted
@@ -237,7 +238,7 @@ class PriveAPIInstance:
             raise Exception("Not logged in")
 
         textToSign = SHA256.new("delUser;name: " + self.loggedInUser)
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         message = "delUser;name: " + self.loggedInUser + ";signatureB64: " + signature
         if not self.__sendMsg(message) == 0:
             raise Exception("Error Communicating with Server (Error 0)")
@@ -256,7 +257,7 @@ class PriveAPIInstance:
 
         newRSAKey = RSA.generate(self.keySize)
         newPKExported = newRSAKey.publickey().exportKey()
-        newPKExportedB64 = base64.b64encode(newRSAKey.publickey().exportKey())
+        newPKExportedB64 = utils.base64_encode(newRSAKey.publickey().exportKey())
         newSKExported = newRSAKey.exportKey()
 
         # Encrypt & B64
@@ -266,7 +267,7 @@ class PriveAPIInstance:
         textToSign = textToSign + privateKeyEncrypted
         textToSign = SHA256.new(textToSign)
 
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         message = "updateKeys;name: " + self.loggedInUser + ";signatureB64: " + signature + ";newPKB64: "
         message = message + newPKExportedB64 + ";newSKAesB64: " + privateKeyEncrypted
         if not self.__sendMsg(message) == 0:
@@ -305,16 +306,16 @@ class PriveAPIInstance:
         if visibility != "Public" and visibility != "Hidden" and visibility != "Private":
             raise Exception("Visibility unknown")
 
-        fileNameB64 = base64.b64encode(fileName)
+        fileNameB64 = utils.base64_encode(fileName)
         if visibility == "Private":
             fileContents = self.encryptWithPadding(self.loggedInPassword, fileContents)[1]
-        fileContentsB64 = base64.b64encode(fileContents)
+        fileContentsB64 = utils.base64_encode(fileContents)
 
         message = "add" + visibility + "File;name: " + self.loggedInUser + ";fileNameB64: " + fileNameB64 + ";fileB64: "
         message = message + fileContentsB64
         textToSign = SHA256.new(message)
 
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         message = message + ";signatureB64: " + signature
 
         if not self.__sendMsg(message) == 0:
@@ -376,7 +377,7 @@ class PriveAPIInstance:
 
         hiddenFileListMessage = "getHiddenFileList;name: " + self.loggedInUser
         textToSign = SHA256.new(hiddenFileListMessage)
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         hiddenFileListMessage = hiddenFileListMessage + ";signatureB64: " + signature
 
         if not self.__sendMsg(hiddenFileListMessage) == 0:
@@ -396,7 +397,7 @@ class PriveAPIInstance:
 
         privateFileListMessage = "getPrivateFileList;name: " + self.loggedInUser
         textToSign = SHA256.new(privateFileListMessage)
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         hiddenFileListMessage = privateFileListMessage + ";signatureB64: " + signature
 
         if not self.__sendMsg(hiddenFileListMessage) == 0:
@@ -436,13 +437,13 @@ class PriveAPIInstance:
 
         msgDict = self.extractKeys(response)
         if msgDict["errorCode"] == "successful":
-            msgDict["file"] = base64.b64decode(msgDict["fileB64"])
+            msgDict["file"] = utils.base64_decode(msgDict["fileB64"])
         return msgDict
 
     def __getPrivateFile(self, user, fileDict):
         getPrivateFileMessage = "getPrivateFile;name: " + user + ";id: " + fileDict["id"]
         textToSign = SHA256.new(getPrivateFileMessage)
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         getPrivateFileMessage = getPrivateFileMessage + ";signatureB64: " + signature
 
         if not self.__sendMsg(getPrivateFileMessage) == 0:
@@ -455,7 +456,7 @@ class PriveAPIInstance:
 
         msgDict = self.extractKeys(response)
         if msgDict["errorCode"] == "successful":
-            msgDict["file"] = self.decryptWithPadding(self.loggedInPassword, base64.b64decode(msgDict["fileB64"]))[1]
+            msgDict["file"] = self.decryptWithPadding(self.loggedInPassword, utils.base64_decode(msgDict["fileB64"]))[1]
         return msgDict
 
     def deleteFile(self, fileDict):
@@ -464,7 +465,7 @@ class PriveAPIInstance:
 
         deleteFileMessage = "deleteFile;name: " + self.loggedInUser + ";id: " + fileDict["id"]
         textToSign = SHA256.new(deleteFileMessage)
-        signature = base64.b64encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
+        signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         deleteFileMessage = deleteFileMessage + "signatureB64: " + signature
 
         if not self.__sendMsg(deleteFileMessage) == 0:
@@ -586,7 +587,7 @@ class PriveAPIInstance:
         plaintextPadded = plaintext + PriveAPIInstance.getRandString(length - 1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertext = base64.b64encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
+        ciphertext = utils.base64_encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
         return True, ciphertext
 
     # Decrypt Using AES padded message
@@ -606,7 +607,7 @@ class PriveAPIInstance:
         """
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertextNotB64 = base64.b64decode(ciphertext)
+        ciphertextNotB64 = utils.base64_decode(ciphertext)
         plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
@@ -653,7 +654,7 @@ class PriveAPIInstance:
         for i in fileListSplit:
             regex = re.search("fileName: (.+).id: (.+)", i)
             if regex:
-                returnDict[regex.group(2)] = {"name": base64.b64decode(regex.group(1)),
+                returnDict[regex.group(2)] = {"name": utils.base64_decode(regex.group(1)),
                                               "visibility": visibility,
                                               "id": regex.group(2)}
         return returnDict

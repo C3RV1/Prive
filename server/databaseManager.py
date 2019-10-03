@@ -156,7 +156,7 @@ class DatabaseManager(threading.Thread):
             self.log("Function {} not in availableFunctions", error=True)
             return ""
         while True:
-            newId = base64.b64encode(utils.get_random_bytes(48))
+            newId = utils.base64_encode(utils.get_random_bytes(48))
             if newId not in self.databaseQueue:
                 break
         self.databaseLock.acquire()
@@ -190,11 +190,11 @@ class DatabaseManager(threading.Thread):
 
     def __newSessionKey(self, host, port, sessionKey):
         #type: (str, int, str) -> bool
-        sessionKeyb64decoded = base64.b64decode(sessionKey)
+        sessionKeyb64decoded = utils.base64_decode(sessionKey)
         sessionKeyDecrypted = PKCS1_OAEP.new(self.privateKey).decrypt(sessionKeyb64decoded)
         if len(sessionKeyDecrypted) != 16 and len(sessionKeyDecrypted) != 32 and len(sessionKeyDecrypted) != 24:
             return False
-        sessionKeyDecryptedB64 = base64.b64encode(sessionKeyDecrypted)
+        sessionKeyDecryptedB64 = utils.base64_encode(sessionKeyDecrypted)
         fileToWrite = open(self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey", "w")
         fileToWrite.write(sessionKeyDecryptedB64)
         return True
@@ -241,7 +241,7 @@ class DatabaseManager(threading.Thread):
         sessionKey = fileToRead.read()
         if sessionKey == "None":
             return False, ""
-        return True, base64.b64decode(sessionKey)
+        return True, utils.base64_decode(sessionKey)
 
     def newUser(self, name, pk, skAesB64, vtB64, vtAesB64):
         #type: (str, str, str, str, str) -> int
@@ -393,7 +393,7 @@ class DatabaseManager(threading.Thread):
         vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "r")
         vtB64Correct = vtFile.read()
 
-        vtShaB64 = base64.b64encode(SHA256.new(base64.b64decode(vtB64)).digest())
+        vtShaB64 = utils.base64_encode(SHA256.new(utils.base64_decode(vtB64)).digest())
 
         if vtShaB64 == vtB64Correct:
             # Empty Ip Tries File
@@ -502,7 +502,7 @@ class DatabaseManager(threading.Thread):
         except:
             return 5
 
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
         signToVerify = SHA256.new()
         signToVerify.update("delUser;name: " + name)
 
@@ -548,7 +548,7 @@ class DatabaseManager(threading.Thread):
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature)
 
-        newPK = base64.b64decode(newPKB64)
+        newPK = utils.base64_decode(newPKB64)
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + name):
             return 1
@@ -576,7 +576,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update("updateKeys;name: " + name + ";newPK: " + newPK + ";newSKAesB64: " + newSKAesB64)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
@@ -603,9 +603,9 @@ class DatabaseManager(threading.Thread):
         retValue = -1
         try:
             retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
-        except:
-            self.log("Error addPublicFile", error=True)
-        return  retValue
+        except Exception as e:
+            self.log("Error addPublicFile: {0}".format(e.message), error=True)
+        return retValue
 
     def __addPublicFile(self, user, fileNameB64, fileB64, signatureB64):
         #type: (str, str, str, str) -> int
@@ -640,6 +640,7 @@ class DatabaseManager(threading.Thread):
             return 8
 
         if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
+            self.log(str(len(fileB64)), debug=True)
             return 9
 
         publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
@@ -660,7 +661,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update("addPublicFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
@@ -673,7 +674,7 @@ class DatabaseManager(threading.Thread):
             randomIdB64 = ""
 
             while True:
-                randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
+                randomIdB64 = utils.base64_encode(utils.get_random_bytes(48))
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
@@ -751,7 +752,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update("addHiddenFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
@@ -764,7 +765,7 @@ class DatabaseManager(threading.Thread):
             randomIdB64 = ""
 
             while True:
-                randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
+                randomIdB64 = utils.base64_encode(utils.get_random_bytes(48))
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
@@ -845,7 +846,7 @@ class DatabaseManager(threading.Thread):
         signatureToVerify = SHA256.new()
         signatureToVerify.update(
             "addPrivateFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
@@ -858,7 +859,7 @@ class DatabaseManager(threading.Thread):
             randomIdB64 = ""
 
             while True:
-                randomIdB64 = base64.b64encode(utils.get_random_bytes(48))
+                randomIdB64 = utils.base64_encode(utils.get_random_bytes(48))
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
@@ -945,7 +946,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update("getHiddenFileList;name: " + user)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
@@ -1004,7 +1005,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update("getPrivateFileList;name: " + user)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
@@ -1135,7 +1136,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update("getPrivateFile;name: " + user + ";id: " + fileIdB64)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)
@@ -1224,7 +1225,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update("deleteFile;name: " + user + ";id: " + fileIdB64)
-        signature = base64.b64decode(signatureB64)
+        signature = utils.base64_decode(signatureB64)
 
         try:
             PKCS1_v1_5_Sig.new(pkKey).verify(signatureToVerify, signature)

@@ -145,7 +145,7 @@ class ClientHandle(threading.Thread):
                             decryptedMessage)
         if newUser:
             l_name = newUser.group(1)
-            l_pkB64 = base64.b64decode(newUser.group(2))
+            l_pkB64 = utils.base64_decode(newUser.group(2))
             l_skAesB64 = newUser.group(3)
             l_vtShaB64 = newUser.group(4)
             l_vtAesB64 = newUser.group(5)
@@ -553,7 +553,7 @@ class ClientHandle(threading.Thread):
         plaintextPadded = plaintext + utils.getRandString(length-1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertext = base64.b64encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
+        ciphertext = utils.base64_encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
         return True, ciphertext
 
     @staticmethod
@@ -561,7 +561,7 @@ class ClientHandle(threading.Thread):
         # type: (str, str) -> tuple
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertextNotB64 = base64.b64decode(ciphertext)
+        ciphertextNotB64 = utils.base64_decode(ciphertext)
         plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
