@@ -640,7 +640,6 @@ class DatabaseManager(threading.Thread):
             return 8
 
         if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
-            self.log(str(len(fileB64)), debug=True)
             return 9
 
         publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
