@@ -18,7 +18,7 @@ import server
 
 class DatabaseManager(threading.Thread):
 
-    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize, maxFiles,
+    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize,
                  serverMaster):
         #type: (str, str, str, int, int, int, server.Server) -> None
         threading.Thread.__init__(self)
@@ -50,7 +50,6 @@ class DatabaseManager(threading.Thread):
         self.logger = logger.Logger(logFile)
         self.maxFileSize = maxFileSize
         self.serverMaster = serverMaster
-        self.maxFiles = maxFiles
 
         self.availableFunctions = ["newUser", "getVTAesB64", "checkVT", "getSK", "getPK",
                                    "delUser", "updateKeys", "addPublicFile",
@@ -71,7 +70,7 @@ class DatabaseManager(threading.Thread):
                                          "addPrivateFile": 4,
                                          "getPublicFileList": 1,
                                          "getHiddenFileList": 2,
-                                         "getPrivateFileList": 3,
+                                         "getPrivateFileList": 2,
                                          "getFile": 2,
                                          "getPrivateFile": 3,
                                          "deleteFile": 3}
@@ -88,7 +87,7 @@ class DatabaseManager(threading.Thread):
                                    "addPrivateFile": self.addPrivateFile,
                                    "getPublicFileList": self.getPublicFileList,
                                    "getHiddenFileList": self.getHiddenFileList,
-                                   "getPrivateFileList": self.getPrivateFile,
+                                   "getPrivateFileList": self.getPrivateFileList,
                                    "getFile": self.getFile,
                                    "getPrivateFile": self.getPrivateFile,
                                    "deleteFile": self.deleteFile}
@@ -618,8 +617,7 @@ class DatabaseManager(threading.Thread):
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature,
         #              8 - Missing Public File List (PUFL))
-        #              9 - Exceeds max file size (4*ceil(bytes/3),
-        #              10 - Max files reached)
+        #              9 - Exceeds max file size (4*ceil(bytes/3))
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
@@ -639,15 +637,19 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl"):
             return 8
 
-        if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
-            return 9
-
         publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
-        publicFileListNofFiles = len(publicFileListFile.read().split(",")[1:-1])
+        publicFileListFilesSplit = publicFileListFile.read().split(",")[1:-1]
+        publicFileListSizes = [0]
+        for i in publicFileListFilesSplit:
+            publicFileListRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
+            if publicFileListRe:
+                publicFileListSizes.append(int(publicFileListRe.group(3)))
         publicFileListFile.close()
 
-        if publicFileListNofFiles >= self.maxFiles:
-            return 10
+        self.log("Total size: {}".format(str(sum(publicFileListSizes))), debug=True)
+
+        if len(fileB64) + sum(publicFileListSizes) > (4*math.ceil(self.maxFileSize/3.0)):
+            return 9
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
@@ -679,7 +681,7 @@ class DatabaseManager(threading.Thread):
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
             publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
-            publicFileList.write("fileName: {0}.id: {1},".format(fileNameB64, randomIdB64))
+            publicFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64, str(len(fileB64))))
             publicFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
@@ -709,8 +711,7 @@ class DatabaseManager(threading.Thread):
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature,
         #              8 - Missing Hidden File List (HFL))
-        #              9 - Exceeds max file size (4*ceil(bytes/3),
-        #              10 - Max files reached)
+        #              9 - Exceeds max file size (4*ceil(bytes/3))
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
@@ -730,15 +731,17 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl"):
             return 8
 
-        if len(fileB64) > 4*math.ceil(self.maxFileSize/3.0):
-            return 9
-
         hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "r")
-        hiddenFileListNofFiles = len(hiddenFileListFile.read().split(",")[1:-1])
+        hiddenFileListFilesSplit = hiddenFileListFile.read().split(",")[1:-1]
+        hiddenFileListSizes = [0]
+        for i in hiddenFileListFilesSplit:
+            hiddenFileListRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
+            if hiddenFileListRe:
+                hiddenFileListSizes.append(int(hiddenFileListRe.group(3)))
         hiddenFileListFile.close()
 
-        if hiddenFileListNofFiles >= self.maxFiles:
-            return 10
+        if len(fileB64) > (4*math.ceil(self.maxFileSize/3.0)) - sum(hiddenFileListSizes):
+            return 9
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
@@ -771,7 +774,7 @@ class DatabaseManager(threading.Thread):
 
             hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
                                   "a")  # Stands for Hidden File List (HFL)
-            hiddenFileList.write("fileName: {0}.id: {1},".format(fileNameB64, randomIdB64))
+            hiddenFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64, str(len(fileB64))))
             hiddenFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -802,8 +805,7 @@ class DatabaseManager(threading.Thread):
         #              6 - Error Importing User PK,
         #              7 - Faulty Signature,
         #              8 - Missing Private File List (PRFL))
-        #              9 - Exceeds max file size (4*ceil(bytes/3),
-        #              10 - Max files reached)
+        #              9 - Exceeds max file size (4*ceil(bytes/3))
 
         if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return 1
@@ -823,15 +825,17 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
             return 8
 
-        if len(fileB64) > 4 * math.ceil(self.maxFileSize / 3.0):
-            return 9
-
         privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "r")
-        privateFileListNofFiles = len(privateFileListFile.read().split(",")[1:-1])
+        privateFileListFilesSplit = privateFileListFile.read().split(",")[1:-1]
+        privateFileSizes = [0]
+        for i in privateFileListFilesSplit:
+            privateFileListRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
+            if privateFileListRe:
+                privateFileSizes.append(int(privateFileListRe.group(3)))
         privateFileListFile.close()
 
-        if privateFileListNofFiles >= self.maxFiles:
-            return 10
+        if len(fileB64) > (4 * math.ceil(self.maxFileSize / 3.0)) - sum(privateFileSizes):
+            return 9
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
         pk = pkFile.read()
@@ -865,7 +869,8 @@ class DatabaseManager(threading.Thread):
 
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
                                    "a")  # Stands for Private File List (PRFL)
-            privateFileList.write("fileName: {0}.id: {1},".format(fileNameB64, randomIdB64))
+            privateFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64,
+                                                                            str(len(fileB64))))
             privateFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -1069,11 +1074,11 @@ class DatabaseManager(threading.Thread):
 
         allIds = []
         for i in publicFileListContentsSplit:
-            idRe = re.search("fileName: .+.id: (.+)", i)
+            idRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
             if idRe:
                 allIds.append(idRe.group(1))
         for i in hiddenFileListContentsSplit:
-            idRe = re.search("fileName: .+.id: (.+)", i)
+            idRe = re.search("fileName: .+.id: (.+).size: (.+)", i)
             if idRe:
                 allIds.append(idRe.group(1))
 
@@ -1152,7 +1157,7 @@ class DatabaseManager(threading.Thread):
 
             allIds = []
             for i in privateFileListSplit:
-                idRe = re.search("filename: .+.id: (.+)", i)
+                idRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
                 if idRe:
                     allIds.append(idRe.group(1))
 

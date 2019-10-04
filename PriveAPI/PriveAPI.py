@@ -5,7 +5,6 @@ from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import PKCS1_v1_5 as PKCS1_v1_5_Sign
-import base64
 import socket
 import re
 import time
@@ -213,7 +212,7 @@ class PriveAPIInstance:
 
         # Get SK
         skDecrypted = self.__checkVT(userName, password, utils.base64_encode(self.decryptWithPadding(password,
-                                                                                                  vt["vt"])[1]))
+                                                                                                     vt["vt"])[1]))
         if skDecrypted["errorCode"] != "successful":
             return skDecrypted
 
@@ -414,6 +413,7 @@ class PriveAPIInstance:
             return msgDict
 
         filesDict.update(self.extractFiles(msgDict["prfl"], visibility="Private"))
+        filesDict["errorCode"] = "successful"
         return filesDict
 
     def getFile(self, fileDict, user=""):
@@ -652,9 +652,10 @@ class PriveAPIInstance:
         fileListSplit = fileList.split(",")[1:-1]
         returnDict = {}
         for i in fileListSplit:
-            regex = re.search("fileName: (.+).id: (.+)", i)
+            regex = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
             if regex:
                 returnDict[regex.group(2)] = {"name": utils.base64_decode(regex.group(1)),
                                               "visibility": visibility,
-                                              "id": regex.group(2)}
+                                              "id": regex.group(2),
+                                              "size": int((int(regex.group(3))/4.0)*3)}  # Transform b64 size to bytes
         return returnDict

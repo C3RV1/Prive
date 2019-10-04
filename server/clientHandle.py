@@ -320,8 +320,6 @@ class ClientHandle(threading.Thread):
                             8: "msg: Missing Public File List;errorCode: missingPUFL",
                             9: "msg: File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
                                 self.databaseManager.maxFileSize),
-                            10: "msg: Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(
-                                self.databaseManager.maxFiles),
                             -1: "msg: Server Panic!;errorCode: serverPanic"}
 
             msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
@@ -353,8 +351,6 @@ class ClientHandle(threading.Thread):
                             8: "msg: Missing Hidden File List;errorCode: missingHFL",
                             9: "msg: File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
                                 self.databaseManager.maxFileSize),
-                            10: "msg: Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(
-                                self.databaseManager.maxFiles),
                             -1: "msg: Server Panic!;errorCode: serverPanic"}
 
             msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
@@ -386,8 +382,6 @@ class ClientHandle(threading.Thread):
                             8: "msg: Missing Private File List;errorCode: missingPRFL",
                             9: "msg: File exceeds max file size of {0} bytes;maxSize: {0};errorCode: fileTooBig".format(
                                 self.databaseManager.maxFileSize),
-                            10: "msg: Reached max files: {0};maxFiles: {0};errorCode: maxFilesReached".format(
-                                self.databaseManager.maxFiles),
                             -1: "msg: Server Panic!;errorCode: serverPanic"}
 
             msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")

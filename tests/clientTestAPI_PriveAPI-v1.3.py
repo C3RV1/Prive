@@ -1,4 +1,4 @@
-import PriveAPI as PriveAPI
+from tests.guiTest import PriveAPI as PriveAPI
 import PriveAPI_ErrorCodes as PriveAPI_eC
 import math
 

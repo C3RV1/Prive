@@ -3,44 +3,9 @@ import ttk
 import tkFileDialog
 import PriveAPI
 import os
-import base64
+from customTkinter import *
 
-class ValidatingEntry(Entry):
-    # base class for validating entry widgets
 
-    def __init__(self, master, value="", **kw):
-        apply(Entry.__init__, (self, master), kw)
-        self.__value = value
-        self.__variable = StringVar()
-        self.__variable.set(value)
-        self.__variable.trace("w", self.__callback)
-        self.config(textvariable=self.__variable)
-
-    def __callback(self, *dummy):
-        value = self.__variable.get()
-        newvalue = self.validate(value)
-        if newvalue is None:
-            self.__variable.set(self.__value)
-        elif newvalue != value:
-            self.__value = newvalue
-            self.__variable.set(self.newvalue)
-        else:
-            self.__value = value
-
-    def validate(self, value):
-        # override: return value, new value, or None if invalid
-        return value
-
-class MaxLengthEntry(ValidatingEntry):
-
-    def __init__(self, master, value="", maxlength=None, **kw):
-        self.maxlength = maxlength
-        apply(ValidatingEntry.__init__, (self, master), kw)
-
-    def validate(self, value):
-        if self.maxlength is None or len(value) <= self.maxlength:
-            return value
-        return None # new value too long
 
 class App:
     def __init__(self):
@@ -115,7 +80,7 @@ class App:
         self.loggedInFrameWidgets["uploadFileButton"].grid(row=2, column=0)
 
         self.loggedInFrameWidgets["downloadFileButton"] = Button(self.frames["loggedInFrame"], text="Download file",
-                                                                 font=("Arial", 16))
+                                                                 font=("Arial", 16), command=self.downloadFile)
         self.loggedInFrameWidgets["downloadFileButton"].grid(row=2, column=1)
 
         self.loggedInFrameWidgets["deleteFileButton"] = Button(self.frames["loggedInFrame"], text="Delete file",
@@ -209,6 +174,57 @@ class App:
 
         errorLabel = Label(uploadFileToplevel, text="", font=("Arial", 12))
         errorLabel.grid(row=3, column=0, columnspan=4)
+
+    def nameToMoreLong(self, name, chars):
+        if len(name) <= chars-3:
+            return name
+        else:
+            return name[0:chars-3] + "..."
+
+    def downloadFile(self):
+        downloadFileToplevel = Toplevel(self.mainWindow)
+        downloadFileToplevel.grab_set()
+        downloadFileToplevel.title("Download file")
+
+        scrollableFileList = VerticalScrolledFrame(downloadFileToplevel)
+        scrollableFileList.grid(row=0, column=0)
+
+        nameLabel2 = Label(scrollableFileList.interior, text="Filename", font=("Arial", 11))
+        nameLabel2.grid(row=0, column=0, sticky=W)
+        sizeLabel2 = Label(scrollableFileList.interior, text="Size", font=("Arial", 11))
+        sizeLabel2.grid(row=0, column=1, sticky=W)
+
+        queryResult = self.priveConnection.getFiles()
+        if queryResult["errorCode"] != "successful":
+            downloadFileToplevel.destroy()
+            return
+
+        del queryResult["errorCode"]
+        currentRow = 1
+
+        errorLabel = None
+
+        for key in queryResult.keys():
+            nameLabel = Label(scrollableFileList.interior, text=self.nameToMoreLong(queryResult[key]["name"], 30),
+                              font=("Arial", 10))
+            nameLabel.grid(row=currentRow, column=0, sticky=W)
+            sizeLabel = Label(scrollableFileList.interior, text=(self.nameToMoreLong(str(queryResult[key]["size"]/1000),
+                                                                                     9) + "KB"), font=("Arial", 10))
+            sizeLabel.grid(row=currentRow, column=1, sticky=W)
+            downloadButton = Button(scrollableFileList.interior, text="Download",
+                                    command=lambda: self.doDownloadFile(queryResult[key]["id"],
+                                                                        errorLabel), font=("Arial", 10))
+            downloadButton.grid(row=currentRow, column=2, sticky=W)
+            currentRow += 1
+
+        downloadFileToplevel.geometry(str(int(scrollableFileList.canvas.winfo_reqwidth())) + "x" +
+                                      str(int(scrollableFileList.canvas.winfo_reqheight()) + 30))
+
+        errorLabel = Label(downloadFileToplevel, text="", font=("Arial", 10))
+        errorLabel.grid(row=1, column=0, columnspan=3)
+
+    def doDownloadFile(self, id, errorLabel):
+        pass
 
     def doUploadFile(self, uploadFileTopLevel, visibility, pathEntry, errorLabel):
         # type: (Toplevel, ttk.Combobox, Entry, Label) -> None
