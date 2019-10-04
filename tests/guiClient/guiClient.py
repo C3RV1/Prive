@@ -193,6 +193,8 @@ class App:
         nameLabel2.grid(row=0, column=0, sticky=W)
         sizeLabel2 = Label(scrollableFileList.interior, text="Size", font=("Arial", 11))
         sizeLabel2.grid(row=0, column=1, sticky=W)
+        visibilityLabel2 = Label(scrollableFileList.interior, text="Visibility", font=("Arial", 11))
+        visibilityLabel2.grid(row=0, column=2, sticky=W)
 
         queryResult = self.priveConnection.getFiles()
         if queryResult["errorCode"] != "successful":
@@ -211,10 +213,15 @@ class App:
             sizeLabel = Label(scrollableFileList.interior, text=(self.nameToMoreLong(str(queryResult[key]["size"]/1000),
                                                                                      9) + "KB"), font=("Arial", 10))
             sizeLabel.grid(row=currentRow, column=1, sticky=W)
+
+            visibilityLabel = Label(scrollableFileList.interior,
+                                    text=self.nameToMoreLong(queryResult[key]["visibility"], 10), font=("Arial", 10))
+            visibilityLabel.grid(row=currentRow, column=2, sticky=W)
+
             downloadButton = Button(scrollableFileList.interior, text="Download",
                                     command=lambda: self.doDownloadFile(queryResult[key]["id"],
-                                                                        errorLabel), font=("Arial", 10))
-            downloadButton.grid(row=currentRow, column=2, sticky=W)
+                                                                        errorLabel, queryResult), font=("Arial", 10))
+            downloadButton.grid(row=currentRow, column=3, sticky=W)
             currentRow += 1
 
         downloadFileToplevel.geometry(str(int(scrollableFileList.canvas.winfo_reqwidth())) + "x" +
@@ -223,8 +230,18 @@ class App:
         errorLabel = Label(downloadFileToplevel, text="", font=("Arial", 10))
         errorLabel.grid(row=1, column=0, columnspan=3)
 
-    def doDownloadFile(self, id, errorLabel):
-        pass
+    def doDownloadFile(self, id, errorLabel, queryResults):
+        queryResult = self.priveConnection.getFile(queryResults[id])
+        print queryResults[id]
+        if queryResult["errorCode"] != "successful":
+            errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
+            return
+        saveLocation = tkFileDialog.asksaveasfilename()
+        saveLocationFile = open(saveLocation, "w")
+        saveLocationFile.write(queryResult["file"])
+        saveLocationFile.close()
+        errorLabel.config(text="Download successful", fg="green")
+        return
 
     def doUploadFile(self, uploadFileTopLevel, visibility, pathEntry, errorLabel):
         # type: (Toplevel, ttk.Combobox, Entry, Label) -> None
