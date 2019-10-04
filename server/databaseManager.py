@@ -1076,11 +1076,14 @@ class DatabaseManager(threading.Thread):
         for i in publicFileListContentsSplit:
             idRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
             if idRe:
-                allIds.append(idRe.group(1))
+                allIds.append(idRe.group(2))
         for i in hiddenFileListContentsSplit:
-            idRe = re.search("fileName: .+.id: (.+).size: (.+)", i)
+            idRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
             if idRe:
-                allIds.append(idRe.group(1))
+                allIds.append(idRe.group(2))
+
+        #self.log("Allids: {}".format(str(allIds)), debug=True)
+        #self.log("FileIDB64: {}".format(fileIdB64),debug=True)
 
         if fileIdB64 in allIds:
             if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
@@ -1159,7 +1162,7 @@ class DatabaseManager(threading.Thread):
             for i in privateFileListSplit:
                 idRe = re.search("fileName:(.+)\\.id:(.+)\\.size:(.+)", i)
                 if idRe:
-                    allIds.append(idRe.group(1))
+                    allIds.append(idRe.group(2))
 
             if fileIdB64 in allIds:
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
