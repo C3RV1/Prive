@@ -237,6 +237,9 @@ class App:
             errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
             return
         saveLocation = tkFileDialog.asksaveasfilename()
+        if saveLocation == "":
+            errorLabel.config(text="Download cancelled", fg="black")
+            return
         saveLocationFile = open(saveLocation, "w")
         saveLocationFile.write(queryResult["file"])
         saveLocationFile.close()
