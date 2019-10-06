@@ -202,7 +202,7 @@ class PriveAPIInstance:
         """
 
         #Padding passwd
-        pwdLength = 16 - password.__len__()
+        pwdLength = 16 - len(password)
         password = password + chr(pwdLength) * pwdLength
 
         # Get VT
@@ -250,25 +250,38 @@ class PriveAPIInstance:
         msgDict = self.extractKeys(response)
         return msgDict
 
-    def updateKeys(self):
+    def updateKeys(self, newPasswd):
         if not self.loggedIn:
             raise Exception("Not logged in")
+
+
+        pwdLength = 16 - len(newPasswd)
+        newPasswd = newPasswd + chr(pwdLength) * pwdLength
 
         newRSAKey = RSA.generate(self.keySize)
         newPKExported = newRSAKey.publickey().exportKey()
         newPKExportedB64 = utils.base64_encode(newRSAKey.publickey().exportKey())
         newSKExported = newRSAKey.exportKey()
 
+        # Validation Token
+        newvt = get_random_bytes(128)
+        newvtSha = SHA256.new(newvt)
+
         # Encrypt & B64
-        privateKeyEncrypted = self.encryptWithPadding(self.loggedInPassword, newSKExported)[1]
+        newvtEncrypted = self.encryptWithPadding(newPasswd, newvt)[1]
+        newvtShaB64 = utils.base64_encode(newvtSha.digest())
+
+        # Encrypt & B64
+        privateKeyEncrypted = self.encryptWithPadding(newPasswd, newSKExported)[1]
 
         textToSign = "updateKeys;name: " + self.loggedInUser + ";newPK: " + newPKExported + ";newSKAesB64: "
-        textToSign = textToSign + privateKeyEncrypted
+        textToSign = textToSign + privateKeyEncrypted + ";newVTSha: " + newvtShaB64 + ";newVTEnc: " + newvtEncrypted
         textToSign = SHA256.new(textToSign)
 
         signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         message = "updateKeys;name: " + self.loggedInUser + ";signatureB64: " + signature + ";newPKB64: "
         message = message + newPKExportedB64 + ";newSKAesB64: " + privateKeyEncrypted
+        message = message + ";newVTSha: " + newvtShaB64 + ";newVTEnc: " + newvtEncrypted
         if not self.__sendMsg(message) == 0:
             raise Exception("Error Communicating with Server (Error 0)")
 
@@ -281,6 +294,7 @@ class PriveAPIInstance:
 
         if msgDict["errorCode"] == "successful":
             self.loggedInSK = newRSAKey
+            self.loggedInPassword = newPasswd
 
         return msgDict
 
@@ -466,7 +480,7 @@ class PriveAPIInstance:
         deleteFileMessage = "deleteFile;name: " + self.loggedInUser + ";id: " + fileDict["id"]
         textToSign = SHA256.new(deleteFileMessage)
         signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
-        deleteFileMessage = deleteFileMessage + "signatureB64: " + signature
+        deleteFileMessage = deleteFileMessage + ";signatureB64: " + signature
 
         if not self.__sendMsg(deleteFileMessage) == 0:
             raise Exception("Error Communicating with Server (Error 0)")

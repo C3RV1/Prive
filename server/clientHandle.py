@@ -55,8 +55,8 @@ class ClientHandle(threading.Thread):
 
     def run(self):
         while True:
-            #try:
-            if True:
+            try:
+            #if True:
                 data = ""
                 while True:
                     newData = self.clientSocket.recv(4096)
@@ -68,8 +68,8 @@ class ClientHandle(threading.Thread):
                 if not self.serverMaster.running.returnRunning():
                     self.send("quit")
                     break
-            """except Exception as e:
-                self.log("Error:" + e, error=True)"""
+            except Exception as e:
+                self.log("Error:" + e, error=True)
         self.closeAll()
 
     def closeAll(self):
@@ -128,13 +128,13 @@ class ClientHandle(threading.Thread):
         sessionKey = sessionKey[1]
 
         decryptedMessage = self.decryptWithPadding(sessionKey, data)[1]
-        self.log("Received: " + decryptedMessage, printOnScreen=False)
+        self.log("Received: [" + decryptedMessage + "]", printOnScreen=False)
         showTxt = ""
         for i in range(0, len(decryptedMessage)):
             if decryptedMessage[i] == ';':
                 break
             showTxt += decryptedMessage[i]
-        self.log("Received: " + showTxt, saveToFile=False)
+        self.log("Received: [" + showTxt + "]", saveToFile=False)
 
         if re.search("^quit$", decryptedMessage):
             return True
@@ -267,7 +267,8 @@ class ClientHandle(threading.Thread):
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
-        updateKeys = re.search("^updateKeys;name: (.+);signatureB64: (.+);newPKB64: (.+);newSKAesB64: (.+)$",
+        updateKeys = re.search("^updateKeys;name: (.+);signatureB64: (.+);newPKB64: (.+);newSKAesB64: (.+);newVTSha: " +
+                               "(.+);newVTEnc: (.+)$",
                                decryptedMessage)
 
         if updateKeys:
@@ -275,20 +276,26 @@ class ClientHandle(threading.Thread):
             l_signatureB64 = updateKeys.group(2)
             l_newPK = updateKeys.group(3)
             l_newSKAesB64 = updateKeys.group(4)
+            l_newVTSha = updateKeys.group(5)
+            l_newVTEnc = updateKeys.group(6)
 
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("updateKeys", (l_name,
                                                                                            l_signatureB64,
                                                                                            l_newPK,
-                                                                                           l_newSKAesB64))
+                                                                                           l_newSKAesB64,
+                                                                                           l_newVTSha,
+                                                                                           l_newVTEnc))
 
             responseDict = {0: "msg: Keys Updated;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",
                             2: "msg: Invalid Signature Characters;errorCode: invalidSignCh",
                             3: "msg: Invalid newSKAesB64 Characters;errorCode: invalidNewSKAesB64",
                             4: "msg: Invalid newPK Format or Characters;errorCode: invalidNewPK",
-                            5: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
-                            6: "msg: Error Importing User PK;errorCode: faultyPK",
-                            7: "msg: Faulty Signature;errorCode: invalidSign",
+                            5: "msg: Invalid Validation Token Sha Characters;errorCode: invalidVTSha",
+                            6: "msg: Invalid Validation Token Encrypted Characters;errorCode: invalidVTEnc",
+                            7: "msg: Strange Error Where User Doesn't Have PK;errorCode: userWithoutPK",
+                            8: "msg: Error Importing User PK;errorCode: faultyPK",
+                            9: "msg: Faulty Signature;errorCode: invalidSign",
                             -1: "msg: Server Panic!;errorCode: serverPanic"}
 
             msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")
@@ -506,15 +513,17 @@ class ClientHandle(threading.Thread):
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
-        deleteFile = re.search("^deleteFile;name (.+);id: (.+);signatureB64: (.+)$", decryptedMessage)
+        deleteFile = re.search("^deleteFile;name: (.+);id: (.+);signatureB64: (.+)$", decryptedMessage)
 
-        if deleteFile and False:
+        if deleteFile:
             l_name = deleteFile.group(1)
             l_id = deleteFile.group(2)
             l_signatureB64 = deleteFile.group(3)
 
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("deleteFile", (l_name, l_id,
                                                                                            l_signatureB64))
+
+            self.log("l_databaseQueryErrorCode on deleteFile: {}".format(l_databaseQueryErrorCode),debug=True)
 
             responseDict = {0: "msg: File Deleted;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",
@@ -535,9 +544,8 @@ class ClientHandle(threading.Thread):
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
-        msg = "Invalid Request;errorCode: invalidReq"
-        msg = self.encryptWithPadding(sessionKey, msg)[1] + "\r\n"
-        self.clientSocket.send(msg)
+        msg = "msg: Invalid Request;errorCode: invalidReq"
+        self.send(msg, encrypted=True, key=sessionKey)
         return False
 
     @staticmethod
