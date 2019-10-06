@@ -6,7 +6,6 @@ import os
 from customTkinter import *
 
 
-
 class App:
     def __init__(self):
         self.priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1")
@@ -84,11 +83,11 @@ class App:
         self.loggedInFrameWidgets["downloadFileButton"].grid(row=2, column=1)
 
         self.loggedInFrameWidgets["deleteFileButton"] = Button(self.frames["loggedInFrame"], text="Delete file",
-                                                               font=("Arial", 16))
+                                                               font=("Arial", 16), command=self.deleteFile)
         self.loggedInFrameWidgets["deleteFileButton"].grid(row=3, column=0)
 
         self.loggedInFrameWidgets["settingButton"] = Button(self.frames["loggedInFrame"], text="Settings",
-                                                            font=("Arial", 16))
+                                                            font=("Arial", 16), command=self.settings)
         self.loggedInFrameWidgets["settingButton"].grid(row=3, column=1)
 
         self.loggedInFrameWidgets["logoutButton"] = Button(self.frames["loggedInFrame"], text="Logout",
@@ -97,6 +96,7 @@ class App:
         self.frames["loggedInFrame"].place_forget()
 
     def login(self):
+        print "LIP:" + self.priveConnection.loggedInPassword
         loginToplevel = Toplevel(self.mainWindow)
         loginToplevel.grab_set()
         loginToplevel.title("Sign in")
@@ -206,6 +206,8 @@ class App:
 
         errorLabel = None
 
+        sizes = 0
+
         for key in queryResult.keys():
             nameLabel = Label(scrollableFileList.interior, text=self.nameToMoreLong(queryResult[key]["name"], 30),
                               font=("Arial", 10))
@@ -219,20 +221,242 @@ class App:
             visibilityLabel.grid(row=currentRow, column=2, sticky=W)
 
             downloadButton = Button(scrollableFileList.interior, text="Download",
-                                    command=lambda: self.doDownloadFile(queryResult[key]["id"],
+                                    command=lambda key=key: self.doDownloadFile(queryResult[key]["id"],
                                                                         errorLabel, queryResult), font=("Arial", 10))
             downloadButton.grid(row=currentRow, column=3, sticky=W)
             currentRow += 1
+            sizes += queryResult[key]["size"]
 
         downloadFileToplevel.geometry(str(int(scrollableFileList.canvas.winfo_reqwidth())) + "x" +
-                                      str(int(scrollableFileList.canvas.winfo_reqheight()) + 30))
+                                      str(int(scrollableFileList.canvas.winfo_reqheight()) + 60))
+
+        sizeLabel = Label(downloadFileToplevel, text=(str(sizes/1000.0) + "KB"), font=("Arial", 10))
+        sizeLabel.grid(row=1, column=0, columnspan=3)
 
         errorLabel = Label(downloadFileToplevel, text="", font=("Arial", 10))
-        errorLabel.grid(row=1, column=0, columnspan=3)
+        errorLabel.grid(row=2, column=0, columnspan=3)
+
+    def deleteFile(self):
+        deleteFileTopelevel = Toplevel(self.mainWindow)
+        deleteFileTopelevel.grab_set()
+        deleteFileTopelevel.title("Delete file")
+
+        scrollableFileList = VerticalScrolledFrame(deleteFileTopelevel)
+        scrollableFileList.grid(row=0, column=0)
+
+        nameLabel2 = Label(scrollableFileList.interior, text="Filename", font=("Arial", 11))
+        nameLabel2.grid(row=0, column=0, sticky=W)
+        sizeLabel2 = Label(scrollableFileList.interior, text="Size", font=("Arial", 11))
+        sizeLabel2.grid(row=0, column=1, sticky=W)
+        visibilityLabel2 = Label(scrollableFileList.interior, text="Visibility", font=("Arial", 11))
+        visibilityLabel2.grid(row=0, column=2, sticky=W)
+
+        queryResult = self.priveConnection.getFiles()
+        if queryResult["errorCode"] != "successful":
+            deleteFileTopelevel.destroy()
+            return
+
+        del queryResult["errorCode"]
+
+        currentRow = 1
+        sizes = 0
+        errorLabel = None
+
+        nameLabel = {}
+        sizeLabel = {}
+        visibilityLabel = {}
+        deleteButton = {}
+
+        for key in queryResult.keys():
+            nameLabel[key] = Label(scrollableFileList.interior, text=self.nameToMoreLong(queryResult[key]["name"], 30),
+                              font=("Arial", 10))
+            nameLabel[key].grid(row=currentRow, column=0, sticky=W)
+            sizeLabel[key] = Label(scrollableFileList.interior,
+                              text=(self.nameToMoreLong(str(queryResult[key]["size"] / 1000),
+                                                        9) + "KB"), font=("Arial", 10))
+            sizeLabel[key].grid(row=currentRow, column=1, sticky=W)
+
+            visibilityLabel[key] = Label(scrollableFileList.interior,
+                                    text=self.nameToMoreLong(queryResult[key]["visibility"], 10), font=("Arial", 10))
+            visibilityLabel[key].grid(row=currentRow, column=2, sticky=W)
+
+            deleteButton[key] = Button(scrollableFileList.interior, text="Delete",
+                                    command=lambda key=key: self.doDeleteFile(queryResult[key]["id"],
+                                                                              errorLabel,
+                                                                              queryResult,
+                                                                              nameLabel,
+                                                                              sizeLabel,
+                                                                              visibilityLabel,
+                                                                              deleteButton),
+                                    font=("Arial", 10))
+            deleteButton[key].grid(row=currentRow, column=3, sticky=W)
+            currentRow += 1
+            sizes += queryResult[key]["size"]
+
+        deleteFileTopelevel.geometry(str(int(scrollableFileList.canvas.winfo_reqwidth())) + "x" +
+                                     str(int(scrollableFileList.canvas.winfo_reqheight()) + 60))
+
+        sizeLabel3 = Label(deleteFileTopelevel, text=(str(sizes / 1000.0) + "KB"), font=("Arial", 10))
+        sizeLabel3.grid(row=1, column=0, columnspan=3)
+
+        errorLabel = Label(deleteFileTopelevel, text="", font=("Arial", 10))
+        errorLabel.grid(row=2, column=0, columnspan=3)
+
+    def settings(self):
+        settingsToplevel = Toplevel(self.mainWindow)
+        settingsToplevel.geometry("400x200")
+        settingsToplevel.title("Settings")
+        settingsToplevel.grab_set()
+
+        centralFrame = Frame(settingsToplevel)
+        centralFrame.place(relx=0.5, rely=0.5, anchor="center")
+
+        settingsLabel = Label(centralFrame, text="Settings", font=("Arial", 16))
+        settingsLabel.grid(row=0, column=0, columnspan=2)
+
+        empty = Label(centralFrame, text=" ", font=("Arial", 12))
+        empty.grid(row=1, column=0)
+
+        changePasswordButton = Button(centralFrame, text="Change password", font=("Arial", 14),
+                                      command=lambda: self.changePassword(settingsToplevel))
+        changePasswordButton.grid(row=2, column=0, columnspan=2)
+
+        deleteUser = Button(centralFrame, text="Delete User", font=("Arial", 14), fg="red")
+        deleteUser.grid(row=3, column=0, columnspan=2)
+
+        help = Button(centralFrame, text="Help", font=("Arial", 14))
+        help.grid(row=4, column=0)
+
+        about = Button(centralFrame, text="About", font=("Arial", 14))
+        about.grid(row=4, column=1)
+
+    def changePassword(self, settingsToplevel):
+        changePasswordToplevel = Toplevel(settingsToplevel)
+        changePasswordToplevel.title("Change password")
+
+        warningLabel = Label(changePasswordToplevel,
+                             text="WARNING: all your private files won't be accessible again.",
+                             font=("Arial", 14), fg="red")
+        warningLabel.grid(row=0, column=0, columnspan=3)
+        warningLabel2 = Label(changePasswordToplevel,
+                              text= "To fix this download them, delete them from the server",
+                              font=("Arial", 14), fg="red")
+        warningLabel2.grid(row=1, column=0, columnspan=3)
+        warningLabel3 = Label(changePasswordToplevel,
+                              text="and upload them after changing your password",
+                              font=("Arial", 14), fg="red")
+        warningLabel3.grid(row=2, column=0, columnspan=3)
+
+        currentPasswordLabel = Label(changePasswordToplevel, text="Actual password: ", font=("Arial", 12))
+        currentPasswordLabel.grid(row=3, column=0, sticky=W)
+        currentPasswordEntry = Entry(changePasswordToplevel, font=("Arial", 12))
+        currentPasswordEntry.grid(row=3, column=1)
+
+        newPasswordLabel = Label(changePasswordToplevel, text="New Password: ", font=("Arial", 12))
+        newPasswordLabel.grid(row=4, column=0, sticky=W)
+        newPasswordEntry = Entry(changePasswordToplevel, font=("Arial", 12))
+        newPasswordEntry.grid(row=4, column=1)
+
+        confirmNewPasswordLabel = Label(changePasswordToplevel, text="Confirm New Password: ", font=("Arial", 12))
+        confirmNewPasswordLabel.grid(row=5, column=0, sticky=W)
+        confirmNewPasswordEntry = Entry(changePasswordToplevel, font=("Arial", 12))
+        confirmNewPasswordEntry.grid(row=5, column=1)
+
+        errorLabel = Label(changePasswordToplevel, text="", font=("Arial", 12))
+        errorLabel.grid(row=6, column=0, columnspan=3)
+
+        changePasswordButton = Button(changePasswordToplevel, text="Change Password", font=("Arial", 12), fg="blue",
+                                      command=lambda: self.doChangePassword(changePasswordToplevel,
+                                                                            currentPasswordEntry,
+                                                                            newPasswordEntry,
+                                                                            confirmNewPasswordEntry,
+                                                                            errorLabel))
+        changePasswordButton.grid(row=7, column=1)
+
+    def doChangePassword(self, changePasswordToplevel,
+                         currentPasswordEntry, newPasswordEntry, confirmNewPasswordEntry, errorLabel):
+        # type: (Toplevel, Entry, Entry, Entry, Label) -> None
+
+        loggedInPassword = self.priveConnection.loggedInPassword[:-ord(self.priveConnection.loggedInPassword[-1])]
+        if currentPasswordEntry.get() != loggedInPassword:
+            errorLabel.config(text="Wrong password", fg="red")
+            return
+        if newPasswordEntry.get() != confirmNewPasswordEntry.get():
+            errorLabel.config(text="New password doesn't match", fg="red")
+            return
+
+        errorLabel.config(text="Please wait...")
+        changePasswordToplevel.update()
+        queryResult = self.priveConnection.updateKeys(newPasswordEntry.get())
+
+        if queryResult["errorCode"] == "successful":
+            errorLabel.config(text="Password changed successfully")
+            return
+        errorLabel.config(text="Error {}".format(queryResult["msg"]))
+        return
+
+
+
+    def doDeleteFile(self, id, errorLabel, queryResults, nameLabels, sizeLabels, visibilityLabels, deleteButtons):
+        areYouSureToplevel = Toplevel(self.mainWindow)
+        areYouSureToplevel.grab_set()
+        areYouSureToplevel.title("Are you sure?")
+
+        areYouSureText = Label(areYouSureToplevel,
+                               text="Are you sure you want to delete " + self.nameToMoreLong(queryResults[id]["name"],
+                                                                                             30) + "?",
+                               font=("Arial", 10))
+        areYouSureText.grid(row=0, column=0, columnspan=2)
+
+        yesButton = Button(areYouSureToplevel, text="Yes", font=("Arial", 10),
+                           command=lambda: self.yesImSure(id, errorLabel, queryResults, areYouSureToplevel,
+                                                          nameLabels, sizeLabels, visibilityLabels, deleteButtons))
+        yesButton.grid(row=1, column=0)
+
+        noButton = Button(areYouSureToplevel, text="No", font=("Arial", 10),
+                          command=lambda: self.noImNotSure(errorLabel, areYouSureToplevel))
+        noButton.grid(row=1, column=1)
+
+        areYouSureToplevel.update()
+
+        areYouSureToplevel.geometry(str(areYouSureText.winfo_width()+10) + "x75")
+
+    def yesImSure(self, id, errorLabel, queryResults, areYouSureToplevel, nameLabels, sizeLabels, visibilityLabels,
+                  deleteButtons):
+        queryResult = self.priveConnection.deleteFile(queryResults[id])
+        if queryResult["errorCode"] == "successful":
+            nameLabels[id].destroy()
+            sizeLabels[id].destroy()
+            visibilityLabels[id].destroy()
+            deleteButtons[id].destroy()
+            del nameLabels[id]
+            del sizeLabels[id]
+            del visibilityLabels[id]
+            del deleteButtons[id]
+
+            currentRow = 1
+            for key in nameLabels.keys():
+                nameLabels[key].grid(row=currentRow, column=0)
+                sizeLabels[key].grid(row=currentRow, column=1)
+                visibilityLabels[key].grid(row=currentRow, column=2)
+                deleteButtons[key].grid(row=currentRow, column=3)
+                currentRow += 1
+
+            errorLabel.config(text="Deleted successfully", fg="green")
+            areYouSureToplevel.destroy()
+            return
+
+        errorLabel.config(text="Error {}".format(queryResult["msg"]), fg="red")
+
+        areYouSureToplevel.destroy()
+        return
+
+    def noImNotSure(self, errorLabel, areYouSureToplevel):
+        errorLabel.config(text="Delete canceled", fg="black")
+        areYouSureToplevel.destroy()
 
     def doDownloadFile(self, id, errorLabel, queryResults):
         queryResult = self.priveConnection.getFile(queryResults[id])
-        print queryResults[id]
         if queryResult["errorCode"] != "successful":
             errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
             return
@@ -292,7 +516,7 @@ class App:
             return
         registerToplevel.geometry("300x150")
         errorLabel.config(text="Please wait...", fg="black")
-        registerToplevel.update_idletasks()
+        registerToplevel.update()
         try:
             queryResult = self.priveConnection.createUser(usernameEntry.get(), passwordEntry.get())
         except Exception as e:
