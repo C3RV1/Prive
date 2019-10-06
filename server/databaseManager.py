@@ -20,7 +20,7 @@ class DatabaseManager(threading.Thread):
 
     def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize,
                  serverMaster):
-        #type: (str, str, str, int, int, int, server.Server) -> None
+        #type: (DatabaseManager, str, str, str, int, int, server.Server) -> None
         threading.Thread.__init__(self)
         self.databaseDirectory = databaseDirectory
         self.unacceptedNameCharacters = unacceptedNameCharacters
@@ -64,7 +64,7 @@ class DatabaseManager(threading.Thread):
                                          "getSK": 1,
                                          "getPK": 1,
                                          "delUser": 2,
-                                         "updateKeys": 4,
+                                         "updateKeys": 6,
                                          "addPublicFile": 4,
                                          "addHiddenFile": 4,
                                          "addPrivateFile": 4,
@@ -526,26 +526,28 @@ class DatabaseManager(threading.Thread):
 
         return 4
 
-    def updateKeys(self, name, signatureB64, newPKB64, newSKAesB64):
-        # type: (str, str, str, str) -> int
+    def updateKeys(self, name, signatureB64, newPKB64, newSKAesB64, newVTSha, newVTEnc):
+        # type: (str, str, str, str, str, str) -> int
         retValue = -1
         try:
-            retValue = self.__updateKeys(name, signatureB64, newPKB64, newSKAesB64)
+            retValue = self.__updateKeys(name, signatureB64, newPKB64, newSKAesB64, newVTSha, newVTEnc)
         except:
             self.log("Error updateKeys", error=True)
         return retValue
 
-    def __updateKeys(self, name, signatureB64, newPKB64, newSKAesB64):
-        # type: (str, str, str, str) -> int
+    def __updateKeys(self, name, signatureB64, newPKB64, newSKAesB64, newVTSha, newVTEnc):
+        # type: (str, str, str, str, str, str) -> int
         # Returns errorCode
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Invalid Signature Characters,
-        #              3 - Invalid newSKAesB64 Character,
+        #              3 - Invalid newSKAesB64 Characters,
         #              4 - Invalid newPK,
-        #              5 - Strange Error Where User Doesn't have PK,
-        #              6 - Error Importing User PK,
-        #              7 - Faulty Signature)
+        #              5 - Invalid newVtSha Characters,
+        #              6 - Invalid newVtEnc Characters,
+        #              7 - Strange Error Where User Doesn't have PK,
+        #              8 - Error Importing User PK,
+        #              9 - Faulty Signature)
 
         newPK = utils.base64_decode(newPKB64)
 
@@ -561,8 +563,14 @@ class DatabaseManager(threading.Thread):
         if not re.search("^-----BEGIN PUBLIC KEY-----\n[a-zA-Z0-9+/=\n]+-----END PUBLIC KEY-----$", newPK):
             return 4
 
-        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk"):
+        if not utils.isBase64(newVTSha):
             return 5
+
+        if not utils.isBase64(newVTEnc):
+            return 6
+
+        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk"):
+            return 7
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "r")
         pk = pkFile.read()
@@ -571,10 +579,11 @@ class DatabaseManager(threading.Thread):
         try:
             pkKey = RSA.importKey(pk)
         except:
-            return 6
+            return 8
 
         signatureToVerify = SHA256.new()
-        signatureToVerify.update("updateKeys;name: " + name + ";newPK: " + newPK + ";newSKAesB64: " + newSKAesB64)
+        signatureToVerify.update("updateKeys;name: " + name + ";newPK: " + newPK + ";newSKAesB64: " + newSKAesB64 +
+                                 ";newVtSha: " + newVTSha + ";newVtEnc: " + newVTEnc)
         signature = utils.base64_decode(signatureB64)
 
         try:
@@ -592,9 +601,17 @@ class DatabaseManager(threading.Thread):
             skFile.write(newSKAesB64)
             skFile.close()
 
+            vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "w")
+            vtFile.write(newVTSha)
+            vtFile.close()
+
+            vtEncFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64", "w")
+            vtEncFile.write(newVTEnc)
+            vtEncFile.close()
+
             return 0
 
-        return 7
+        return 9
 
     # File secction
 
@@ -789,7 +806,7 @@ class DatabaseManager(threading.Thread):
     def addPrivateFile(self, user, fileNameB64, fileB64, signatureB64):
         retValue = -1
         try:
-            retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
+            retValue = self.__addPrivateFile(user, fileNameB64, fileB64, signatureB64)
         except:
             self.log("Error addPrivateFile", error=True)
         return retValue
@@ -1117,7 +1134,7 @@ class DatabaseManager(threading.Thread):
         #              8 - File Not Found,
         #              9 - File In A File List but Nonexistent)
 
-        if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user):
+        if not os.path.isdir(self.databaseDirectory + "/Profiles/" + user):
             return [1, ""]
 
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
@@ -1253,8 +1270,7 @@ class DatabaseManager(threading.Thread):
             index = 0
 
             for i in range(0, len(publicFileListSplitComma)):
-                idRe = re.search("fileName: .+.id: " + fileIdB64, publicFileListSplitComma[i])
-                if idRe:
+                if "id:" + fileIdB64 in publicFileListSplitComma[i]:
                     found = True
                     index = i
                     break
@@ -1263,8 +1279,7 @@ class DatabaseManager(threading.Thread):
                 publicFileListSplitComma.pop(index)
             else:
                 for i in range(0, len(hiddenFileListSplitComma)):
-                    idRe = re.search("fileName: .+.id: " + fileIdB64, hiddenFileListSplitComma[i])
-                    if idRe:
+                    if "id:" + fileIdB64 in hiddenFileListSplitComma[i]:
                         found = True
                         index = i
                         break
@@ -1272,8 +1287,7 @@ class DatabaseManager(threading.Thread):
                     hiddenFileListSplitComma.pop(index)
                 else:
                     for i in range(0, len(privateFileListSplitComma)):
-                        idRe = re.search("fileName: .+.id: " + fileIdB64, privateFileListSplitComma[i])
-                        if idRe:
+                        if "id:" + fileIdB64 in privateFileListSplitComma[i]:
                             found = True
                             index = i
                             break
@@ -1286,7 +1300,7 @@ class DatabaseManager(threading.Thread):
             if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileToDelete):
                 return 11
 
-            # Could potentially be exploited to remove any file, but we have sanitized the input
+            # Could potentially be exploited to remove any file, but we have sanitized the input to be Base64
             os.remove(self.databaseDirectory + "/Profiles/" + user + "/" + fileToDelete)
 
             publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "w")
