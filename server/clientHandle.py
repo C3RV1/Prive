@@ -128,13 +128,14 @@ class ClientHandle(threading.Thread):
         sessionKey = sessionKey[1]
 
         decryptedMessage = self.decryptWithPadding(sessionKey, data)[1]
-        self.log("Received: [" + decryptedMessage + "]", printOnScreen=False)
         showTxt = ""
         for i in range(0, len(decryptedMessage)):
             if decryptedMessage[i] == ';':
                 break
             showTxt += decryptedMessage[i]
         self.log("Received: [" + showTxt + "]", saveToFile=False)
+        if showTxt != "keepAlive":
+            self.log("Received: [" + decryptedMessage + "]", printOnScreen=False)
 
         if re.search("^quit$", decryptedMessage):
             return True

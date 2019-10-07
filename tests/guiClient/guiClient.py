@@ -96,7 +96,6 @@ class App:
         self.frames["loggedInFrame"].place_forget()
 
     def login(self):
-        print "LIP:" + self.priveConnection.loggedInPassword
         loginToplevel = Toplevel(self.mainWindow)
         loginToplevel.grab_set()
         loginToplevel.title("Sign in")
@@ -132,12 +131,12 @@ class App:
 
         passwordLabel = Label(registerTopLevel, text="Password: ", font=("Arial", 14))
         passwordLabel.grid(row=1, column=0)
-        passwordEntry = MaxLengthEntry(registerTopLevel, maxlength=16)
+        passwordEntry = MaxLengthEntry(registerTopLevel, maxlength=31)
         passwordEntry.grid(row=1, column=1)
 
         confirmPasswordLabel = Label(registerTopLevel, text="Confirm password: ", font=("Arial", 14))
         confirmPasswordLabel.grid(row=2, column=0)
-        confirmPasswordEntry = MaxLengthEntry(registerTopLevel, maxlength=16)
+        confirmPasswordEntry = MaxLengthEntry(registerTopLevel, maxlength=31)
         confirmPasswordEntry.grid(row=2, column=1)
 
         submitButton = Button(registerTopLevel, text="Submit", font=("Arial", 14), fg="blue",
@@ -321,7 +320,8 @@ class App:
                                       command=lambda: self.changePassword(settingsToplevel))
         changePasswordButton.grid(row=2, column=0, columnspan=2)
 
-        deleteUser = Button(centralFrame, text="Delete User", font=("Arial", 14), fg="red")
+        deleteUser = Button(centralFrame, text="Delete User", font=("Arial", 14), fg="red",
+                            command=lambda: self.deleteUser(settingsToplevel))
         deleteUser.grid(row=3, column=0, columnspan=2)
 
         help = Button(centralFrame, text="Help", font=("Arial", 14))
@@ -349,7 +349,7 @@ class App:
 
         currentPasswordLabel = Label(changePasswordToplevel, text="Actual password: ", font=("Arial", 12))
         currentPasswordLabel.grid(row=3, column=0, sticky=W)
-        currentPasswordEntry = Entry(changePasswordToplevel, font=("Arial", 12))
+        currentPasswordEntry = MaxLengthEntry(changePasswordToplevel, font=("Arial", 12), maxlength=31)
         currentPasswordEntry.grid(row=3, column=1)
 
         newPasswordLabel = Label(changePasswordToplevel, text="New Password: ", font=("Arial", 12))
@@ -359,7 +359,7 @@ class App:
 
         confirmNewPasswordLabel = Label(changePasswordToplevel, text="Confirm New Password: ", font=("Arial", 12))
         confirmNewPasswordLabel.grid(row=5, column=0, sticky=W)
-        confirmNewPasswordEntry = Entry(changePasswordToplevel, font=("Arial", 12))
+        confirmNewPasswordEntry = MaxLengthEntry(changePasswordToplevel, font=("Arial", 12), maxlength=31)
         confirmNewPasswordEntry.grid(row=5, column=1)
 
         errorLabel = Label(changePasswordToplevel, text="", font=("Arial", 12))
@@ -372,6 +372,32 @@ class App:
                                                                             confirmNewPasswordEntry,
                                                                             errorLabel))
         changePasswordButton.grid(row=7, column=1)
+
+    def deleteUser(self, settingsToplevel):
+        deleteUserToplevel = Toplevel(settingsToplevel)
+        deleteUserToplevel.grab_set()
+
+        currentPasswordLabel = Label(deleteUserToplevel, text="Current password: ", font=("Arial", 12))
+        currentPasswordLabel.grid(row=0, column=0)
+
+        currentPasswordEntry = Entry(deleteUserToplevel, font=("Arial", 12))
+        currentPasswordEntry.grid(row=0, column=1)
+
+        warningLabel = Label(deleteUserToplevel, text="WARNING: If you click YES, all your files will be deleted!",
+                             font=("Arial", 12), fg="red")
+        warningLabel2 = Label(deleteUserToplevel, text="Be careful!", font=("Arial",12), fg="red")
+        warningLabel.grid(row=1, column=0, columnspan=3)
+        warningLabel2.grid(row=2, column=0, columnspan=3)
+
+        yesButton = Button(deleteUserToplevel, text="YES", font=("Arial", 12), fg="black", bg="red")
+        yesButton.grid(row=3, column=0)
+
+        noButton = Button(deleteUserToplevel, text="No", font=("Arial", 12),
+                          command=deleteUserToplevel.destroy)
+        noButton.grid(row=3, column=1)
+
+        deleteUserToplevel.update()
+        deleteUserToplevel.geometry(str(deleteUserToplevel.winfo_width())+"x"+str(deleteUserToplevel.winfo_height()+10))
 
     def doChangePassword(self, changePasswordToplevel,
                          currentPasswordEntry, newPasswordEntry, confirmNewPasswordEntry, errorLabel):
