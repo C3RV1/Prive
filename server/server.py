@@ -19,8 +19,8 @@ class ConsoleForExit(threading.Thread):
             except Exception as e:
                 print e
                 continue
-            if command == "exit":
-                self.serverMaster.log("Exiting")
+            if command == "stop":
+                self.serverMaster.log("Stopping the server")
                 self.running = False
                 disconectSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 disconectSocket.connect((self.serverMaster.host, self.serverMaster.port))
