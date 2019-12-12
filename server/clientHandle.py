@@ -12,14 +12,15 @@ import utils
 
 
 class Timeout(threading.Thread):
-    def __init__(self, clientHandlerMaster, sock, clientAddr, timeoutList, timeout, databaseManager):
-        # type: (ClientHandle, socket.socket, tuple, list, int, databaseManager.DatabaseManager) -> None
+    def __init__(self, clientHandlerMaster, sock, clientAddr, timeout, databaseManager):
+        # type: (ClientHandle, socket.socket, tuple, int, databaseManager.DatabaseManager) -> None
         self.databaseManager = databaseManager
         self.clientAddr = clientAddr
         self.log("Starting Timeout Thread on Client " + clientAddr[0] + " " + str(clientAddr[1]))
         threading.Thread.__init__(self)
         self.socket = sock
-        self.timeoutList = timeoutList
+        self.startTimeout = time.time()
+        self.timeoutEvent = threading.Event()
         self.timeout = timeout
         self.clientHandlerMaster = clientHandlerMaster
 
@@ -28,15 +29,19 @@ class Timeout(threading.Thread):
         self.databaseManager.logger.log("ClientTimeout:" + self.clientAddr[0] + ":" + str(self.clientAddr[1]),
                                         msg, printToScreen=printOnScreen, debug=debug)
 
+    def stop(self):
+        self.timeoutEvent.set()
+
+    def resetTime(self):
+        self.startTimeout = time.time()
+
     def run(self):
-        while True and not self.timeoutList[1]:
-            if self.timeoutList[0] > self.timeout:
+        while not self.timeoutEvent.is_set():
+            if time.time() - self.startTimeout >= self.timeout:
                 self.log("Client " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout")
-                self.socket.close()
                 self.clientHandlerMaster.closeAll()
                 break
             time.sleep(1)
-            self.timeoutList[0] += 1
         self.log("Exiting Timeout")
 
 
@@ -50,29 +55,32 @@ class ClientHandle(threading.Thread):
         self.databaseManager = databaseManager
         self.serverMaster = serverMaster
         self.timeoutList = [0, False]  # Because all instances share the same object
-        self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, self.timeoutList, timeout, databaseManager)
+        self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, timeout, databaseManager)
         self.timeOutController.start()
+        self.runningEvent = threading.Event()
 
     def run(self):
-        while True:
+        while not self.runningEvent.is_set():
             try:
-            #if True:
                 data = ""
                 while True:
                     newData = self.clientSocket.recv(4096)
                     data = data + newData
                     if re.search("\r\n", newData):
                         break
+                if self.runningEvent.is_set():
+                    break
                 if self.handleMessage(data):
                     break
                 if not self.serverMaster.running.returnRunning():
                     self.send("quit")
                     break
             except Exception as e:
-                self.log("Error:" + e, error=True)
+                self.log("Error:" + str(e), error=True)
         self.closeAll()
 
     def closeAll(self):
+        self.runningEvent.set()
         self.databaseManager.deleteSessionKey(self.clientAddress[0], self.clientAddress[1])
         self.log("Closing")
         try:
@@ -80,10 +88,11 @@ class ClientHandle(threading.Thread):
         except Exception:
             self.log("Client Already Closed")
         self.log("Removing Timeout")
+        self.timeOutController.stop()
+        self.timeOutController.join()
         self.timeOutController = None
         self.log("Removing Self")
         self.serverMaster.deleteClientThread(self)
-        self.timeoutList[1] = True
 
     def log(self, msg, printOnScreen=True, debug=False, error=False, saveToFile=True):
         # type: (str, bool, bool, bool, bool) -> None
@@ -101,7 +110,7 @@ class ClientHandle(threading.Thread):
         self.clientSocket.send(msg)
 
     def handleMessage(self, data):
-        self.timeoutList[0] = 0
+        self.timeOutController.resetTime()
         data = data[:-2]
         if re.search("^quit$", data):
             return True
@@ -113,16 +122,16 @@ class ClientHandle(threading.Thread):
                 validSEK = self.databaseManager.newSessionKey(self.clientAddress[0], self.clientAddress[1],
                                                                     sessionKeyRe.group(1))
                 if not validSEK:
-                    self.send("Invalid Session Key;errorCode: invalid")
+                    self.send("msg: Invalid Session Key;errorCode: invalid")
                 else:
-                    self.send("Session Key Updated;errorCode: successful")
+                    self.send("msg: Session Key Updated;errorCode: successful")
                 return False
             else:
-                self.send("Already Session Key;errorCode: already")
+                self.send("msg: Already Session Key;errorCode: already")
                 return False
 
         if not sessionKey[0]:
-            self.send("No Session Key")
+            self.send("msg: No Session Key;errorCode: missingSessionKey")
             return False
 
         sessionKey = sessionKey[1]
