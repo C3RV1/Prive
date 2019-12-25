@@ -281,10 +281,6 @@ class DatabaseManager(threading.Thread):
 
         os.mkdir(self.databaseDirectory + "/Profiles/" + name)
 
-        nameFile = open(self.databaseDirectory + "/Profiles/" + name + "/name.username", "w")
-        nameFile.write(name)
-        nameFile.close()
-
         pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "w")  # Public Key
         pkFile.write(pk)
         pkFile.close()
