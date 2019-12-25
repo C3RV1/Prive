@@ -36,7 +36,19 @@ class PriveAPIInstance:
         # Server Socket
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((serverIP, serverPort))
+        try:
+            socket.inet_aton(serverIP)
+        except:
+            try:
+                serverIP = socket.gethostbyname(serverIP)
+            except:
+                raise Exception("Couldn't resolve host")
+
+        try:
+            self.sock.connect((serverIP, serverPort))
+        except:
+            self.sock.close()
+            raise Exception("Could connect to server")
         self.sessionKeySet = False
         self.loggedInSK = None  # Private Key
         self.loggedInUser = ""  # Active User
@@ -248,6 +260,11 @@ class PriveAPIInstance:
         response = response[1]
 
         msgDict = self.extractKeys(response)
+        if msgDict["errorCode"] == "successful":
+            self.loggedIn = False
+            self.loggedInPassword = ""
+            self.loggedInSK = None
+            self.loggedInUser = ""
         return msgDict
 
     def updateKeys(self, newPasswd):
@@ -495,6 +512,7 @@ class PriveAPIInstance:
 
     def logout(self):
         self.loggedIn = False
+        self.loggedInPassword = ""
         self.loggedInSK = None
         self.loggedInUser = ""
 
@@ -569,6 +587,18 @@ class PriveAPIInstance:
         """
         self.__sendMsg("quit")
         self.sock.close()
+
+    def getLoggedInPasswd(self):
+        """
+
+        Returns the password used for login.
+        Raises exception if not logged in.
+
+        :return: password
+        """
+        if not self.loggedIn:
+            raise Exception("Password requested while not logged in")
+        return self.loggedInPassword[:-ord(self.loggedInPassword[-1])]
 
     # Get Random String
     @staticmethod
