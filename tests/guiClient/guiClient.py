@@ -8,7 +8,7 @@ from customTkinter import *
 
 class App:
     def __init__(self):
-        self.priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1")
+        self.priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1", keySize=2048)
 
         self.frames = {}
         self.loginFrameWidgets = {}
@@ -324,11 +324,23 @@ class App:
                             command=lambda: self.deleteUser(settingsToplevel))
         deleteUser.grid(row=3, column=0, columnspan=2)
 
-        help = Button(centralFrame, text="Help", font=("Arial", 14))
-        help.grid(row=4, column=0)
+        about = Button(centralFrame, text="About", font=("Arial", 14),
+                       command=lambda: self.about(settingsToplevel))
+        about.grid(row=4, column=0, columnspan=2)
 
-        about = Button(centralFrame, text="About", font=("Arial", 14))
-        about.grid(row=4, column=1)
+    def about(self, settingsToplevel):
+        aboutToplevel = Toplevel(settingsToplevel)
+        aboutToplevel.grab_set()
+        aboutLabel1 = Label(aboutToplevel, text="Prive by Alex Cervilla Murga", font=("Arial", 12))
+        aboutLabel1.grid(row=0, column=0)
+        aboutLabel2 = Label(aboutToplevel, text="GUIClient by Alex Cervilla Murga", font=("Arial", 12))
+        aboutLabel2.grid(row=1, column=0)
+        aboutLabel3 = Label(aboutToplevel, text="", font=("Arial", 8))
+        aboutLabel3.grid(row=2, column=0)
+        aboutLabel4 = Label(aboutToplevel, text="Prive is a secure online drive", font=("Arial", 12))
+        aboutLabel4.grid(row=3, column=0)
+        aboutLabel5 = Label(aboutToplevel, text="In development 23 Apr 2019 - Present", font=("Arial", 12))
+        aboutLabel5.grid(row=4, column=0)
 
     def changePassword(self, settingsToplevel):
         changePasswordToplevel = Toplevel(settingsToplevel)
@@ -389,7 +401,9 @@ class App:
         warningLabel.grid(row=1, column=0, columnspan=3)
         warningLabel2.grid(row=2, column=0, columnspan=3)
 
-        yesButton = Button(deleteUserToplevel, text="YES", font=("Arial", 12), fg="black", bg="red")
+        yesButton = Button(deleteUserToplevel, text="YES", font=("Arial", 12), fg="black", bg="red",
+                           command=lambda: self.doDeleteUser(settingsToplevel, deleteUserToplevel,
+                                                             currentPasswordEntry))
         yesButton.grid(row=3, column=0)
 
         noButton = Button(deleteUserToplevel, text="No", font=("Arial", 12),
@@ -399,12 +413,36 @@ class App:
         deleteUserToplevel.update()
         deleteUserToplevel.geometry(str(deleteUserToplevel.winfo_width())+"x"+str(deleteUserToplevel.winfo_height()+10))
 
+    def doDeleteUser(self, settingsToplevel, deleteUserToplevel, currentPasswordEntry):
+        if currentPasswordEntry.get() != self.priveConnection.getLoggedInPasswd():
+            wrongPasswdToplevel = Toplevel(deleteUserToplevel)
+            wrongPasswdToplevel.grab_set()
+            wrongPasswdLabel = Label(wrongPasswdToplevel, text="Wrong current password", font=("Arial", 12), fg="red")
+            wrongPasswdLabel.grid(row=0, column=0)
+            wrongPasswdToplevel.update()
+            wrongPasswdToplevel.geometry(str(wrongPasswdToplevel.winfo_width())+"x"+str(wrongPasswdToplevel.winfo_height()+10))
+            return
+
+        result = self.priveConnection.deleteUser()
+        if result["errorCode"] == "successful":
+            self.setActiveFrame("loginFrame")
+            deleteUserToplevel.destroy()
+            settingsToplevel.destroy()
+        else:
+            errorToplevel = Toplevel(deleteUserToplevel)
+            errorToplevel.grab_set()
+            errorLabel = Label(errorToplevel, text="Error: {}".format(result["msg"]), font=("Arial", 12),
+                               fg="red")
+            errorLabel.grid(row=0, column=0)
+            errorToplevel.update()
+            errorToplevel.geometry(str(errorToplevel.winfo_width())+"x"+str(errorToplevel.winfo_height()+10))
+            return
+
     def doChangePassword(self, changePasswordToplevel,
                          currentPasswordEntry, newPasswordEntry, confirmNewPasswordEntry, errorLabel):
         # type: (Toplevel, Entry, Entry, Entry, Label) -> None
 
-        loggedInPassword = self.priveConnection.loggedInPassword[:-ord(self.priveConnection.loggedInPassword[-1])]
-        if currentPasswordEntry.get() != loggedInPassword:
+        if currentPasswordEntry.get() != self.priveConnection.getLoggedInPasswd():
             errorLabel.config(text="Wrong password", fg="red")
             return
         if newPasswordEntry.get() != confirmNewPasswordEntry.get():
