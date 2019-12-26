@@ -30,7 +30,7 @@ class AutoKeepAlive(threading.Thread):
 
 class PriveAPIInstance:
 
-    def __init__(self, serverIP, serverPublicKeyFile="serverPublicKey.pk", serverPort=4373, autoKeepAlive=True,
+    def __init__(self, serverIP, serverPublicKey, serverPort=4373, autoKeepAlive=True,
                  keySize=4096):
         # type: (str, str, int, bool, int) -> None
         # Server Socket
@@ -56,8 +56,7 @@ class PriveAPIInstance:
         self.loggedIn = False
         self.keySize = keySize
 
-        serverPublicKeyF = open(serverPublicKeyFile, "r")
-        serverPublicKeyStr = serverPublicKeyF.read()
+        serverPublicKeyStr = serverPublicKey
         self.serverPublicKey = RSA.importKey(serverPublicKeyStr)
 
         self.__sendCreateSessionKeyMessage()

@@ -3,12 +3,38 @@ import ttk
 import tkFileDialog
 import PriveAPI
 import os
+import json
 from customTkinter import *
 
 
 class App:
     def __init__(self):
-        self.priveConnection = PriveAPI.PriveAPIInstance("127.0.0.1", keySize=2048)
+        if not os.path.isfile("priveConfigFile.pcf"):
+            sys.exit(1)
+
+        clientConfigFile = open("priveConfigFile.pcf", "r")
+        clientConfig = clientConfigFile.read()
+        clientConfigFile.close()
+
+        try:
+            config = json.loads(clientConfig)
+        except:
+            sys.exit(2)
+
+        if not "host" in config.keys() or not "rsa-key" in config.keys():
+            sys.exit(3)
+
+        if not "key-size" in config.keys():
+            config["key-size"] = 2048
+
+        if not "port" in config.keys():
+            config["port"] = 4373
+
+        try:
+            self.priveConnection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"], keySize=config["key-size"],
+                                                             serverPort=config["port"])
+        except:
+            sys.exit(3)
 
         self.frames = {}
         self.loginFrameWidgets = {}
