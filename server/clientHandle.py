@@ -78,9 +78,12 @@ class ClientHandle(threading.Thread):
             except Exception as e:
                 self.log("Error:" + str(e), error=True)
                 self.closeAll()
+                return
         self.closeAll()
 
     def closeAll(self):
+        if self.runningEvent.is_set():
+            return
         self.runningEvent.set()
         self.databaseManager.deleteSessionKey(self.clientAddress[0], self.clientAddress[1])
         self.log("Closing")
