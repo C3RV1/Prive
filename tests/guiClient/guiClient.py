@@ -1,7 +1,7 @@
 from Tkinter import *
 import ttk
 import tkFileDialog
-import PriveAPI
+import PriveAPI.PriveAPI
 import os
 import json
 from customTkinter import *

@@ -1,4 +1,4 @@
-import PriveAPI
+import PriveAPI.PriveAPI
 import argparse
 import os
 import sys
