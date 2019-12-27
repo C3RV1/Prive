@@ -360,7 +360,7 @@ class PriveAPIInstance:
         return msgDict
 
     def getFiles(self, user=""):
-        if user == "":
+        if user == "" or user == self.loggedInUser:
             return self.__getFiles()
         publicFileListMessage = "getPublicFileList;name: " + user
 
