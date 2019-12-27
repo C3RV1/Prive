@@ -77,6 +77,7 @@ class ClientHandle(threading.Thread):
                     break
             except Exception as e:
                 self.log("Error:" + str(e), error=True)
+                self.closeAll()
         self.closeAll()
 
     def closeAll(self):
@@ -89,7 +90,10 @@ class ClientHandle(threading.Thread):
             self.log("Client Already Closed")
         self.log("Removing Timeout")
         self.timeOutController.stop()
-        self.timeOutController.join()
+        try:
+            self.timeOutController.join()
+        except:
+            pass
         self.timeOutController = None
         self.log("Removing Self")
         self.serverMaster.deleteClientThread(self)
@@ -533,7 +537,7 @@ class ClientHandle(threading.Thread):
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("deleteFile", (l_name, l_id,
                                                                                            l_signatureB64))
 
-            self.log("l_databaseQueryErrorCode on deleteFile: {}".format(l_databaseQueryErrorCode),debug=True)
+            #self.log("l_databaseQueryErrorCode on deleteFile: {}".format(l_databaseQueryErrorCode),debug=True)
 
             responseDict = {0: "msg: File Deleted;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",

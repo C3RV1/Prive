@@ -659,7 +659,7 @@ class DatabaseManager(threading.Thread):
                 publicFileListSizes.append(int(publicFileListRe.group(3)))
         publicFileListFile.close()
 
-        self.log("Total size: {}".format(str(sum(publicFileListSizes))), debug=True)
+        #self.log("Total size: {}".format(str(sum(publicFileListSizes))), debug=True)
 
         if len(fileB64) + sum(publicFileListSizes) > (4*math.ceil(self.maxFileSize/3.0)):
             return 9
