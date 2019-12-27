@@ -50,7 +50,7 @@ class Server:
 
         # Master socket for connection accepting
         self.listenSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.listenSocket.bind((host, port))
+        self.listenSocket.bind(("0.0.0.0", port))
         self.listenSocket.listen(maxCurrentUsers)
 
         # List of client threads

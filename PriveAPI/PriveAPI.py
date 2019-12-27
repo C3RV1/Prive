@@ -24,7 +24,7 @@ class AutoKeepAlive(threading.Thread):
         while True:
             try:
                 self.serverSock.send(self.keepAliveMsg)
-                time.sleep(2)
+                time.sleep(0.2)
             except:
                 break
 
