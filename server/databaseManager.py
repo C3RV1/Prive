@@ -13,6 +13,7 @@ import utils
 import math
 import threading
 import server
+from config import Config
 
 # ALL file management is done in this file and in generateKeys.py
 
@@ -31,6 +32,8 @@ class DatabaseManager(threading.Thread):
             os.mkdir(self.databaseDirectory + "/Profiles")
         if not os.path.isdir(self.databaseDirectory + "/SessionKeys"):
             os.mkdir(self.databaseDirectory + "/SessionKeys")
+        if not os.path.isdir(self.databaseDirectory + "/Challenges"):
+            os.mkdir(self.databaseDirectory + "/Challenges")
         #if not os.path.isdir(self.databaseDirectory + "\\Chats"):
         #    os.mkdir(self.databaseDirectory + "\\Chats")
 
@@ -42,7 +45,7 @@ class DatabaseManager(threading.Thread):
             genKeyObj = generateKeys.GenerateKeys(self.databaseDirectory, keySize)
             genKeyObj.generate()
 
-        privateKeyFile = open(privateKeyPath, "r")
+        privateKeyFile = open(privateKeyPath, "rb")
         privateKeyStr = privateKeyFile.read()
         self.privateKey = RSA.importKey(privateKeyStr)
 
@@ -56,9 +59,9 @@ class DatabaseManager(threading.Thread):
                                    "addHiddenFile", "addPrivateFile",
                                    "getPublicFileList", "getHiddenFileList",
                                    "getPrivateFileList", "getFile",
-                                   "getPrivateFile", "deleteFile"]
+                                   "getPrivateFile", "deleteFile", "requestChallenge"]
 
-        self.functionParametersLength = {"newUser": 5,
+        self.functionParametersLength = {"newUser": 7,
                                          "getVTAesB64": 1,
                                          "checkVT": 5,
                                          "getSK": 1,
@@ -73,7 +76,8 @@ class DatabaseManager(threading.Thread):
                                          "getPrivateFileList": 2,
                                          "getFile": 2,
                                          "getPrivateFile": 3,
-                                         "deleteFile": 3}
+                                         "deleteFile": 3,
+                                         "requestChallenge": 1}
 
         self.functionNameToFunc = {"newUser": self.newUser,
                                    "getVTAesB64": self.getVtAesB64,
@@ -90,10 +94,16 @@ class DatabaseManager(threading.Thread):
                                    "getPrivateFileList": self.getPrivateFileList,
                                    "getFile": self.getFile,
                                    "getPrivateFile": self.getPrivateFile,
-                                   "deleteFile": self.deleteFile}
+                                   "deleteFile": self.deleteFile,
+                                   "requestChallenge": self.requestChallenge}
 
+        self.databaseQueueLock = threading.Lock()
         self.databaseQueue = []
+
+        self.idQueueDictionaryLock = threading.Lock()
         self.idQueueDictionary = {}
+
+        self.resultsDictionaryLock = threading.Lock()
         self.resultsDictionary = {}
 
     def log(self, msg, printOnScreen=True, debug=False, error=False):
@@ -106,8 +116,13 @@ class DatabaseManager(threading.Thread):
         while self.serverMaster.running.returnRunning():
             while len(self.databaseQueue) > 0:
                 self.databaseLock.acquire()
+
+                self.databaseQueueLock.acquire()
                 actionToDo = self.databaseQueue.pop(0)
+                self.databaseQueueLock.release()
+
                 self.doAction(actionToDo)
+
                 self.databaseLock.release()
             time.sleep(0.05)
 
@@ -115,7 +130,11 @@ class DatabaseManager(threading.Thread):
         if id not in self.idQueueDictionary:
             self.log("Id {} not in queue dictionary but in databaseQueue".format(id), error=True)
             return
+
+        self.idQueueDictionaryLock.acquire()
         actionData = self.idQueueDictionary[id]
+        self.idQueueDictionaryLock.release()
+
         if "function" not in actionData:
             self.log("Id {} in queue dictionary hasn't got a function key".format(id), error=True)
             return
@@ -146,7 +165,10 @@ class DatabaseManager(threading.Thread):
             return
 
         result = self.functionNameToFunc[function](*params)
+
+        self.resultsDictionaryLock.acquire()
         self.resultsDictionary[id] = result
+        self.resultsDictionaryLock.release()
 
     def addToQueue(self, function, params):
         # type: (str, tuple) -> str
@@ -158,23 +180,34 @@ class DatabaseManager(threading.Thread):
             newId = utils.base64_encode(utils.get_random_bytes(48))
             if newId not in self.databaseQueue:
                 break
-        self.databaseLock.acquire()
+
+        self.databaseQueueLock.acquire()
         self.databaseQueue.append(newId)
+        self.databaseQueueLock.release()
+
+        self.idQueueDictionaryLock.acquire()
         self.idQueueDictionary[newId] = {"function": function, "params": params}
-        self.databaseLock.release()
+        self.idQueueDictionaryLock.release()
+
         return newId
 
     def executeFunction(self, function, params):
         id = self.addToQueue(function, params)
+
         if id == "":
             return -1
+
         while id not in self.resultsDictionary:
             time.sleep(0.02)
+
+        self.resultsDictionaryLock.acquire()
         result = self.resultsDictionary[id]
         del self.resultsDictionary[id]
+        self.resultsDictionaryLock.release()
+
         return result
 
-    # Prive Methods
+    # Security section
 
     def newSessionKey(self, host, port, sessionKey):
         #type: (str, int, str) -> bool
@@ -194,7 +227,7 @@ class DatabaseManager(threading.Thread):
         if len(sessionKeyDecrypted) != 16 and len(sessionKeyDecrypted) != 32 and len(sessionKeyDecrypted) != 24:
             return False
         sessionKeyDecryptedB64 = utils.base64_encode(sessionKeyDecrypted)
-        fileToWrite = open(self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey", "w")
+        fileToWrite = open(self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey", "wb")
         fileToWrite.write(sessionKeyDecryptedB64)
         return True
 
@@ -236,30 +269,84 @@ class DatabaseManager(threading.Thread):
         filePath = self.databaseDirectory + "/SessionKeys/" + host + "_" + str(port) + ".sessionkey"
         if not os.path.isfile(filePath):
             return False, ""
-        fileToRead = open(filePath, "r")
+        fileToRead = open(filePath, "rb")
         sessionKey = fileToRead.read()
         if sessionKey == "None":
             return False, ""
         return True, utils.base64_decode(sessionKey)
 
-    def newUser(self, name, pk, skAesB64, vtB64, vtAesB64):
-        #type: (str, str, str, str, str) -> int
+    def requestChallenge(self, ip):
+        # type: (str) -> tuple
+        retValue = (-1, "")
+        try:
+            retValue = self.__requestChallenge(ip)
+        except:
+            self.log("Error requestChallenge", error=True)
+        return retValue
+
+    def __requestChallenge(self, ip):
+        # type: (str) -> tuple
+        if not os.path.isfile(self.databaseDirectory + "/Challenges/" + ip + ".chll"):
+            randomChallenge = utils.base64_encode(utils.get_random_bytes(48))
+
+            chlFile = open(self.databaseDirectory + "/Challenges/" + ip + ".chll", "wb")
+            chlFile.write(randomChallenge)
+            chlFile.close()
+
+        chlFile = open(self.databaseDirectory + "/Challenges/" + ip + ".chll", "rb")
+        challenge = chlFile.read()
+        chlFile.close()
+        return 0, challenge
+
+    def checkPOW_(self, proofOfWork, ip):
+        # type: (str, str) -> int
+        if not os.path.isfile(self.databaseDirectory + "/Challenges/" + ip + ".chll"):
+            return 1
+
+        challengeFile = open(self.databaseDirectory + "/Challenges/" + ip + ".chll", "rb")
+        challenge = challengeFile.read()
+
+        try:
+            challenge = utils.base64_decode(challenge)
+        except Exception as e:
+            self.log("Proof of work error decoding base64. Error: {}".format(e), error=True)
+            try:
+                os.remove(self.databaseDirectory + "/Challenges/" + ip + ".chll")
+            except:
+                pass
+            return 1
+
+        challengeSolved = challenge + proofOfWork
+
+        check = utils.checkProofOfWork(challengeSolved, Config.POW_NUM_OF_0, Config.POW_ITERATIONS)
+
+        if check:
+            return 0
+        else:
+            return 2
+
+    # User section
+
+    def newUser(self, name, pk, skAesB64, vtB64, vtAesB64, proofOfWork, ip):
+        #type: (str, str, str, str, str, str, str) -> int
         retValue = -1
         try:
-            retValue = self.__newUser(name, pk, skAesB64, vtB64, vtAesB64)
+            retValue = self.__newUser(name, pk, skAesB64, vtB64, vtAesB64, proofOfWork, ip)
         except:
             self.log("Error newUser", error=True)
         return retValue
 
-    def __newUser(self, name, pk, skAesB64, vtB64, vtAesB64):
-        #type: (str, str, str, str, str) -> int
+    def __newUser(self, name, pk, skAesB64, vtB64, vtAesB64, proofOfWork, ip):
+        #type: (str, str, str, str, str, str, str) -> int
         # Returns errorNumber (0 - All Correct,
         #                      1 - AlreadyExists,
         #                      2 - Bad Characters Name,
         #                      3 - " " Private Key,
         #                      4 - " " Public Key,
         #                      5 - " " Validation Token,
-        #                      6 - " " Validation Token Encrypted)
+        #                      6 - " " Validation Token Encrypted,
+        #                      7 - " " Proof of Work,
+        #                      8/9 - Proof of work errors (checkPOW_))
 
         if not re.search(self.unacceptedNameCharacters, name):
             return 2
@@ -279,36 +366,45 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(vtAesB64):
             return 6
 
+        if not utils.isBase64(proofOfWork):
+            return 7
+
+        proofOfWork = utils.base64_decode(proofOfWork)
+
+        powVerification = self.checkPOW_(proofOfWork, ip)
+        if powVerification != 0:
+            return powVerification+7
+
         os.mkdir(self.databaseDirectory + "/Profiles/" + name)
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "w")  # Public Key
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "wb")  # Public Key
         pkFile.write(pk)
         pkFile.close()
 
-        skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "w")  # Secret Key Aes
+        skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "wb")  # Secret Key Aes
         skFile.write(skAesB64)
         skFile.close()
 
-        vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "w")  # Validation Token
+        vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "wb")  # Validation Token
         vtFile.write(vtB64)
         vtFile.close()
 
         vtAesFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64",
-                         "w")  # Validation Token Aes
+                         "wb")  # Validation Token Aes
         vtAesFile.write(vtAesB64)
         vtAesFile.close()
 
         os.mkdir(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs")
 
-        publicFileList = open(self.databaseDirectory + "/Profiles/" + name + "/publicFileList.pufl", "w")
+        publicFileList = open(self.databaseDirectory + "/Profiles/" + name + "/publicFileList.pufl", "wb")
         publicFileList.write(",")
         publicFileList.close()
 
-        hiddenFileList = open(self.databaseDirectory + "/Profiles/" + name + "/hiddenFileList.hfl", "w")
+        hiddenFileList = open(self.databaseDirectory + "/Profiles/" + name + "/hiddenFileList.hfl", "wb")
         hiddenFileList.write(",")
         hiddenFileList.close()
 
-        privateFileList = open(self.databaseDirectory + "/Profiles/" + name + "/privateFileList.prfl", "w")
+        privateFileList = open(self.databaseDirectory + "/Profiles/" + name + "/privateFileList.prfl", "wb")
         privateFileList.write(",")
         privateFileList.close()
 
@@ -339,7 +435,7 @@ class DatabaseManager(threading.Thread):
             return 2, ""
 
         vtAesFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64",
-                         "r")  # Validation Token Aes
+                         "rb")  # Validation Token Aes
         vtAes = vtAesFile.read()
 
         return 0, vtAes
@@ -364,7 +460,7 @@ class DatabaseManager(threading.Thread):
         #              5 - Locked Account)
 
         if os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip):
-            triesFile = open(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip, "r")
+            triesFile = open(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip, "rb")
             triesNotRe = triesFile.read()
             triesNotRe = triesNotRe.split("\n")[:-1]
             triesNotReLast = triesNotRe[-1]
@@ -385,8 +481,9 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(vtB64):
             return 4, 0
 
-        vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "r")
+        vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "rb")
         vtB64Correct = vtFile.read()
+        vtFile.close()
 
         vtShaB64 = utils.base64_encode(SHA256.new(utils.base64_decode(vtB64)).digest())
 
@@ -394,15 +491,15 @@ class DatabaseManager(threading.Thread):
             # Empty Ip Tries File
             if os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip):
                 os.remove(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip)
-            vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "w")
+            vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "wb")
             vtFile.write(newVTSha)
             vtFile.close()
-            vtEncFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64", "w")
+            vtEncFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64", "wb")
             vtEncFile.write(newVTEnc)
             vtEncFile.close()
             return 0, 0
 
-        ipFile = open(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip, "a")
+        ipFile = open(self.databaseDirectory + "/Profiles/" + name + "/triesByIPs/" + ip, "ab")
         ipFile.write("Ltest: " + str(time.time()) + "\n")
         return 1, 0
 
@@ -428,7 +525,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64"):
             return [1, ""]
 
-        skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "r")
+        skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "rb")
         sk = skFile.read()
 
         return [0, sk]
@@ -455,7 +552,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk"):
             return 2, ""
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "rb")
         pk = pkFile.read()
 
         return 0, pk
@@ -488,7 +585,7 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(signatureB64):
             return 3
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -568,7 +665,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk"):
             return 7
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -589,19 +686,19 @@ class DatabaseManager(threading.Thread):
             validSignature = False
 
         if validSignature is True:
-            pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "w")
+            pkFile = open(self.databaseDirectory + "/Profiles/" + name + "/publickey.pk", "wb")
             pkFile.write(newPK)
             pkFile.close()
 
-            skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "w")
+            skFile = open(self.databaseDirectory + "/Profiles/" + name + "/privatekey.skaesb64", "wb")
             skFile.write(newSKAesB64)
             skFile.close()
 
-            vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "w")
+            vtFile = open(self.databaseDirectory + "/Profiles/" + name + "/validation.vtb64", "wb")
             vtFile.write(newVTSha)
             vtFile.close()
 
-            vtEncFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64", "w")
+            vtEncFile = open(self.databaseDirectory + "/Profiles/" + name + "/validationEnc.vtaesb64", "wb")
             vtEncFile.write(newVTEnc)
             vtEncFile.close()
 
@@ -650,7 +747,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl"):
             return 8
 
-        publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
+        publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "rb")
         publicFileListFilesSplit = publicFileListFile.read().split(",")[1:-1]
         publicFileListSizes = [0]
         for i in publicFileListFilesSplit:
@@ -664,7 +761,7 @@ class DatabaseManager(threading.Thread):
         if len(fileB64) + sum(publicFileListSizes) > (4*math.ceil(self.maxFileSize/3.0)):
             return 9
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -693,11 +790,11 @@ class DatabaseManager(threading.Thread):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "a")  # Stands for Public File List (PUFL)
+            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "ab")  # Stands for Public File List (PUFL)
             publicFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64, str(len(fileB64))))
             publicFileList.close()
 
-            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "w")  #Stands for File Data (FD). Also fileFile is funny.
+            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "wb")  #Stands for File Data (FD). Also fileFile is funny.
             fileFile.write(fileB64)
             fileFile.close()
 
@@ -744,7 +841,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl"):
             return 8
 
-        hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "r")
+        hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "rb")
         hiddenFileListFilesSplit = hiddenFileListFile.read().split(",")[1:-1]
         hiddenFileListSizes = [0]
         for i in hiddenFileListFilesSplit:
@@ -756,7 +853,7 @@ class DatabaseManager(threading.Thread):
         if len(fileB64) > (4*math.ceil(self.maxFileSize/3.0)) - sum(hiddenFileListSizes):
             return 9
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -786,12 +883,12 @@ class DatabaseManager(threading.Thread):
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
             hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
-                                  "a")  # Stands for Hidden File List (HFL)
+                                  "ab")  # Stands for Hidden File List (HFL)
             hiddenFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64, str(len(fileB64))))
             hiddenFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
-                            "w")  #Stands for File Data (FD). Also fileFile is funny.
+                            "wb")  #Stands for File Data (FD). Also fileFile is funny.
             fileFile.write(fileB64)
             fileFile.close()
 
@@ -838,7 +935,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
             return 8
 
-        privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "r")
+        privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "rb")
         privateFileListFilesSplit = privateFileListFile.read().split(",")[1:-1]
         privateFileSizes = [0]
         for i in privateFileListFilesSplit:
@@ -850,7 +947,7 @@ class DatabaseManager(threading.Thread):
         if len(fileB64) > (4 * math.ceil(self.maxFileSize / 3.0)) - sum(privateFileSizes):
             return 9
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -881,13 +978,13 @@ class DatabaseManager(threading.Thread):
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
-                                   "a")  # Stands for Private File List (PRFL)
+                                   "ab")  # Stands for Private File List (PRFL)
             privateFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64,
                                                                             str(len(fileB64))))
             privateFileList.close()
 
             fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
-                            "w")  # Stands for File Data (FD). Also fileFile is funny.
+                            "wb")  # Stands for File Data (FD). Also fileFile is funny.
             fileFile.write(fileB64)
             fileFile.close()
 
@@ -916,7 +1013,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl"):
             return [2, ""]
 
-        publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")  # Stands for Public File List (PUFL)
+        publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "rb")  # Stands for Public File List (PUFL)
         publicFileListContents = publicFileList.read()
         publicFileList.close()
         return [0, publicFileListContents]
@@ -952,7 +1049,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
             return [4, ""]
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -973,7 +1070,7 @@ class DatabaseManager(threading.Thread):
 
         if validSignature:
             hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
-                                  "r")  # Stands for Hidden File List (HFL)
+                                  "rb")  # Stands for Hidden File List (HFL)
             hiddenFileListContents = hiddenFileList.read()
             hiddenFileList.close()
             return [0, hiddenFileListContents]
@@ -1011,7 +1108,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
             return [4, ""]
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -1032,7 +1129,7 @@ class DatabaseManager(threading.Thread):
 
         if validSignature:
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
-                                  "r")  # Stands for Hidden File List (HFL)
+                                   "rb")  # Stands for Hidden File List (HFL)
             privateFileListContents = privateFileList.read()
             privateFileList.close()
             return [0, privateFileListContents]
@@ -1070,8 +1167,8 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(fileIdB64):
             return [4, ""]
 
-        publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
-        hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "r")
+        publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "rb")
+        hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "rb")
 
         publicFileListContents = publicFileListFile.read()
         hiddenFileListContents = hiddenFileListFile.read()
@@ -1101,7 +1198,7 @@ class DatabaseManager(threading.Thread):
         if fileIdB64 in allIds:
             if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
                 return [5, ""]
-            fileB64File = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd", "r")
+            fileB64File = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd", "rb")
             fileB64 = fileB64File.read()
             fileB64File.close()
             return [0, fileB64]
@@ -1145,7 +1242,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl"):
             return [5, ""]
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -1166,7 +1263,7 @@ class DatabaseManager(threading.Thread):
 
         if validSignature:
             privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
-                                   "r")
+                                   "rb")
             privateFileListSplit = privateFileList.read().split(",")
             privateFileListSplit = privateFileListSplit[1:-1]
             privateFileList.close()
@@ -1180,7 +1277,7 @@ class DatabaseManager(threading.Thread):
             if fileIdB64 in allIds:
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
                     return [9, ""]
-                fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd")
+                fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd", "rb")
                 fileContents = fileFile.read()
                 fileFile.close()
                 return [0, fileContents]
@@ -1234,7 +1331,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk"):
             return 7
 
-        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "r")
+        pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
         pk = pkFile.read()
         pkFile.close()
 
@@ -1254,9 +1351,9 @@ class DatabaseManager(threading.Thread):
             validSignature = False
 
         if validSignature:
-            publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "r")
-            hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "r")
-            privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "r")
+            publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "rb")
+            hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "rb")
+            privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "rb")
 
             publicFileListSplitComma = publicFileListFile.read().split(",")[1:-1]
             hiddenFileListSplitComma = hiddenFileListFile.read().split(",")[1:-1]
@@ -1299,9 +1396,9 @@ class DatabaseManager(threading.Thread):
             # Could potentially be exploited to remove any file, but we have sanitized the input to be Base64
             os.remove(self.databaseDirectory + "/Profiles/" + user + "/" + fileToDelete)
 
-            publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "w")
-            hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "w")
-            privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "w")
+            publicFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "wb")
+            hiddenFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl", "wb")
+            privateFileListFile = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl", "wb")
 
             result = ","
 

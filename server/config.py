@@ -13,3 +13,5 @@ class Config:
     CLIENT_KEYSIZE = 2048
     VERSION = "v1.0.0"
     MAX_FILE_SIZE = 1000000  # 1mb in bytes
+    POW_NUM_OF_0 = 4  # Num of hexadecimal zeroes in front of verification
+    POW_ITERATIONS = 2  # Num of hash iterations

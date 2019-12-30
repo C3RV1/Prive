@@ -117,14 +117,24 @@ class ClientHandle(threading.Thread):
         self.clientSocket.send(msg)
 
     def handleMessage(self, data):
+        # Reset timeout time
         self.timeOutController.resetTime()
+
+        # Remove \r\n from message
         data = data[:-2]
+
         if re.search("^quit$", data):
             return True
+
+        # Check if session key message
         sessionKeyRe = re.search("^sessionkey: (.*)$", data)
+
+        # Get session key if exists
         sessionKey = self.databaseManager.getSessionKey(self.clientAddress[0], self.clientAddress[1])
+
+        # Check if it was a session key message
         if sessionKeyRe:
-            self.log("Received session key")
+            self.log("Received session key", saveToFile=False)
             if not sessionKey[0]:
                 validSEK = self.databaseManager.newSessionKey(self.clientAddress[0], self.clientAddress[1],
                                                                     sessionKeyRe.group(1))
@@ -158,7 +168,19 @@ class ClientHandle(threading.Thread):
         if re.search("^keepAlive$", decryptedMessage):
             return False
 
-        newUser = re.search("^newUser;name: (.+);pkB64: (.+);skAesB64: (.+);vtB64: (.+);vtAesB64: (.+)$",
+        requestChallenge = re.search("^requestChallenge$", decryptedMessage)
+
+        if requestChallenge:
+            l_databaseQueryResult = self.databaseManager.executeFunction("requestChallenge", (self.clientAddress[0],))
+
+            responseDict = {0: "msg: Returning Challenge;challenge: {};errorCode: successful".format(l_databaseQueryResult[1]),
+                            -1: "msg: Server Panic!;errorCode: serverPanic"}
+
+            msg = responseDict.get(l_databaseQueryResult[0], "msg: Bad Error Code;errorCode: badErrorCode")
+            self.send(msg, encrypted=True, key=sessionKey)
+            return False
+
+        newUser = re.search("^newUser;name: (.+);pkB64: (.+);skAesB64: (.+);vtB64: (.+);vtAesB64: (.+);pow: (.+)$",
                             decryptedMessage)
         if newUser:
             l_name = newUser.group(1)
@@ -166,13 +188,16 @@ class ClientHandle(threading.Thread):
             l_skAesB64 = newUser.group(3)
             l_vtShaB64 = newUser.group(4)
             l_vtAesB64 = newUser.group(5)
+            l_proofOfWork = newUser.group(6)
 
             # l_databaseQueryErrorCode = self.databaseManager.newUser(l_name, l_pkB64, l_skAesB64, l_vtShaB64, l_vtAesB64)
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("newUser", (l_name,
                                                                                         l_pkB64,
                                                                                         l_skAesB64,
                                                                                         l_vtShaB64,
-                                                                                        l_vtAesB64))
+                                                                                        l_vtAesB64,
+                                                                                        l_proofOfWork,
+                                                                                        self.clientAddress[0]))
 
             responseDict = {0: "msg: New User Registered!;errorCode: successful",
                             1: "msg: User Already Exists;errorCode: usrAlreadyExists",
@@ -181,6 +206,9 @@ class ClientHandle(threading.Thread):
                             4: "msg: Invalid Public Key Characters;errorCode: invalidPK",
                             5: "msg: Invalid Validation Token Characters;errorCode: invalidVT",
                             6: "msg: Invalid Encrypted Validation Token Characters;errorCode: invalidVTEnc",
+                            7: "msg: Invalid Proof Of Work Characters;errorCode: invalidPOWCh",
+                            8: "msg: Challenge Not Previously Requested/Found;errorCode: noChallenge",
+                            9: "msg: Invalid Proof Of Work;errorCode: invalidPOW",
                             -1: "msg: Server Panic!;errorCode: serverPanic"}
 
             msg = responseDict.get(l_databaseQueryErrorCode, "msg: Bad Error Code;errorCode: badErrorCode")

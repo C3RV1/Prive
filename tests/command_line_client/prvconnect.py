@@ -1,4 +1,4 @@
-import PriveAPI
+import PriveAPI.PriveAPI as PriveAPI
 import argparse
 import os
 import sys
@@ -41,13 +41,21 @@ class PRVConnect:
         if not "port" in config.keys():
             config["port"] = 4373
 
+        if not "pow-0es" in config.keys():
+            config["pow-0es"] = 5
+
+        if not "pow-iterations" in config.keys():
+            config["pow-iterations"] = 2
+
         try:
             self.priveConnection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"],
                                                              keySize=config["key-size"],
-                                                             serverPort=config["port"])
+                                                             serverPort=config["port"],
+                                                             proofOfWork0es=config["pow-0es"],
+                                                             proofOfWorkIterations=config["pow-iterations"])
         except Exception as e:
             print "Error stablishing connection (prive connection)"
-            print "Error {}".format(e.message)
+            print "Error {}".format(e)
             sys.exit(0)
 
         self.user = user[0]

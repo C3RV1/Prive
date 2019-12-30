@@ -1,6 +1,7 @@
 import inspect
 import base64
 from Crypto.Random import random, get_random_bytes
+from Crypto.Hash import SHA256
 import re
 
 
@@ -48,3 +49,14 @@ def extractData(msg):
         errorCode = msgRe.group(2)
 
         return msgData, errorCode
+
+def checkProofOfWork(msgToVerify, pow0es, powIterations):
+    # type: (str, int, int) -> bool
+    hash = SHA256.new(msgToVerify)
+    for i in range(0, powIterations - 1):
+        hash.update(hash.hexdigest())
+
+    if re.search("^" + "0" * pow0es, hash.hexdigest()):
+        return True
+    else:
+        return False

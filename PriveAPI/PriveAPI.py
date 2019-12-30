@@ -10,7 +10,13 @@ import re
 import time
 import threading
 import utils
+import random
+import math
+import string
 
+alphabet = list(string.ascii_lowercase)
+alphabet.extend(str(i) for i in range(0, 10))
+alphabet.extend(string.ascii_uppercase)
 
 class AutoKeepAlive(threading.Thread):
 
@@ -31,8 +37,8 @@ class AutoKeepAlive(threading.Thread):
 class PriveAPIInstance:
 
     def __init__(self, serverIP, serverPublicKey, serverPort=4373, autoKeepAlive=True,
-                 keySize=4096):
-        # type: (str, str, int, bool, int) -> None
+                 keySize=4096, proofOfWork0es=5, proofOfWorkIterations=2):
+        # type: (str, str, int, bool, int, int, int) -> None
         # Server Socket
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,6 +61,8 @@ class PriveAPIInstance:
         self.loggedInPassword = ""  # Active User Password
         self.loggedIn = False
         self.keySize = keySize
+        self.proofOfWork0es = proofOfWork0es
+        self.proofOfWorkIterations = proofOfWorkIterations
 
         serverPublicKeyStr = serverPublicKey
         self.serverPublicKey = RSA.importKey(serverPublicKeyStr)
@@ -110,6 +118,43 @@ class PriveAPIInstance:
 
         return
 
+    def solveProofOfWork(self, challenge):
+        random.seed(time.time())
+        numToAppend = random.randint(0, math.pow(math.floor(time.time()), 2))
+        while True:
+            testStr = challenge + PriveAPIInstance.numToAlphabet(numToAppend)
+            hash = SHA256.new(testStr)
+            for i in range(0, self.proofOfWorkIterations-1):
+                hash.update(hash.hexdigest())
+            if re.search("^" + "0"*self.proofOfWork0es, hash.hexdigest()):
+                # Debug
+                #print "Check: {}".format(utils.checkProofOfWork(testStr, self.proofOfWork0es,
+                #                                                self.proofOfWorkIterations))
+                return PriveAPIInstance.numToAlphabet(numToAppend)
+            numToAppend += 1
+
+    def requestChallengeAndSolve(self):
+        # type: () -> tuple
+        message = "requestChallenge"
+        if not self.__sendMsg(message) == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+
+        msgReceived = self.__receiveResponse()
+        if not msgReceived[0] == 0:
+            raise Exception("Error Communicating with Server (Error 0)")
+        msgRece = msgReceived[1]
+
+        # Extract Data
+        msgDict = self.extractKeys(msgRece)
+
+        #print "DBG: {}".format(msgDict)
+
+        if msgDict["errorCode"] != "successful":
+            return False, ""
+
+        challenge = utils.base64_decode(msgDict["challenge"])
+        return True, self.solveProofOfWork(challenge)
+
     def createUser(self, userName, password):
         # type: (str, str) -> dict
         """
@@ -140,9 +185,14 @@ class PriveAPIInstance:
         vtEncrypted = self.encryptWithPadding(password, vt)[1]
         vtShaB64 = utils.base64_encode(vtSha)
 
+        proofOfWork = self.requestChallengeAndSolve()
+        if proofOfWork[0] is False:
+            raise Exception("Error Calculation Proof of Work (Error 4)")
+
         # Create Message
         message = "newUser;name: " + userName + ";pkB64: " + publicKey + ";skAesB64: "
         message = message + privateKeyEncrypted + ";vtB64: " + vtShaB64 + ";vtAesB64: " + vtEncrypted
+        message = message + ";pow: " + utils.base64_encode(proofOfWork[1])
 
         # Send Message
         if not self.__sendMsg(message) == 0:
@@ -702,3 +752,11 @@ class PriveAPIInstance:
                                               "id": regex.group(2),
                                               "size": int((int(regex.group(3))/4.0)*3)}  # Transform b64 size to bytes
         return returnDict
+
+    @staticmethod
+    def numToAlphabet(num):
+        res = ""
+        while num > 0:
+            res += alphabet[num % len(alphabet)]
+            num = (num - len(alphabet)) / len(alphabet)
+        return res

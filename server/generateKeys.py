@@ -35,12 +35,14 @@ class GenerateKeys:
         configDict = {"host": config.Config.HOST,
                       "port": config.Config.PORT,
                       "key-size": config.Config.CLIENT_KEYSIZE,
-                      "rsa-key": newPublicKeyExported}
+                      "rsa-key": newPublicKeyExported,
+                      "pow-0es": config.Config.POW_NUM_OF_0,
+                      "pow-iterations": config.Config.POW_ITERATIONS}
 
         print "Creating Prive Config File (PCF) with conf: \n"
 
         for key in configDict.keys():
-            print "{}. {}".format(key, repr(configDict[key]))
+            print "{}. {}\n".format(key, repr(configDict[key]))
 
         priveConfigFile = open(self.databaseDirectory + "/priveConfigFile.pcf", "w")
         priveConfigFile.write(json.dumps(configDict, sort_keys=True, indent=4))
