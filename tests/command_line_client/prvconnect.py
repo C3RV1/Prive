@@ -91,7 +91,7 @@ class PRVConnect:
         if not os.path.isfile(path):
             print "File not found"
             sys.exit(0)
-        f = open(path, "r")
+        f = open(path, "rb")
         content = f.read()
         f.close()
 
@@ -114,7 +114,7 @@ class PRVConnect:
         if not os.path.isfile(path):
             print "File not found"
             sys.exit(0)
-        f = open(path, "r")
+        f = open(path, "rb")
         content = f.read()
         f.close()
 
@@ -137,7 +137,7 @@ class PRVConnect:
         if not os.path.isfile(path):
             print "File not found"
             sys.exit(0)
-        f = open(path, "r")
+        f = open(path, "rb")
         content = f.read()
         f.close()
 
@@ -184,7 +184,7 @@ class PRVConnect:
             self.priveConnection.close()
             sys.exit(0)
 
-        outputFile = open(outputPath, "w")
+        outputFile = open(outputPath, "wb")
         outputFile.write(getFileRequest["file"])
         outputFile.close()
         print "Saved successfully"
@@ -241,7 +241,7 @@ class PRVConnect:
 
         del queryResult["errorCode"]
 
-        nameHeader = "Name" + " "*8
+        nameHeader = "Name" + " "*20
         visibilityHeader = "Visibility "
         sizeHeader = "Size (KB)" + " "*8
         idHeader = "ID"
@@ -301,9 +301,9 @@ class PRVConnect:
             print "Error: {} ({})".format(deleteUserRequest["msg"], deleteUserRequest["errorCode"])
             self.priveConnection.close()
             sys.exit(0)
+        print "User deleted successfully"
         self.priveConnection.close()
         sys.exit(0)
-        print "User deleted successfully"
 
 parser = argparse.ArgumentParser(description="Communicate with a Prive Server")
 parser.add_argument("--pcf", nargs=1, default=["priveConfigFile.pcf"], metavar="<pcf path>",
