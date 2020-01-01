@@ -19,7 +19,7 @@ alphabet = list(string.ascii_lowercase)
 alphabet.extend(str(i) for i in range(0, 10))
 alphabet.extend(string.ascii_uppercase)
 
-bytes3ChunksToSend = 65536
+bytes3ChunksToSend = 65536*2
 
 class AutoKeepAlive(threading.Thread):
 

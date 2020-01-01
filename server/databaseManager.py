@@ -326,8 +326,17 @@ class DatabaseManager(threading.Thread):
         check = utils.checkProofOfWork(challengeSolved, Config.POW_NUM_OF_0, Config.POW_ITERATIONS)
 
         if check:
+            try:
+                os.remove(self.databaseDirectory + "/Challenges/" + ip + ".chll")
+            except:
+                pass
             return 0
         else:
+
+            try:
+                os.remove(self.databaseDirectory + "/Challenges/" + ip + ".chll")
+            except:
+                pass
             return 2
 
     # User section

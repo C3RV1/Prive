@@ -1,7 +1,7 @@
 from Tkinter import *
 import ttk
 import tkFileDialog
-import PriveAPI.PriveAPI
+import PriveAPI.PriveAPI as PriveAPI
 import os
 import json
 from customTkinter import *
@@ -30,9 +30,16 @@ class App:
         if not "port" in config.keys():
             config["port"] = 4373
 
+        if not "pow-0es" in config.keys():
+            config["pow-0es"] = 5
+
+        if not "pow-iterations" in config.keys():
+            config["pow-iterations"] = 2
+
         try:
             self.priveConnection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"], keySize=config["key-size"],
-                                                             serverPort=config["port"])
+                                                             serverPort=config["port"], proofOfWork0es=config["pow-0es"],
+                                                             proofOfWorkIterations=config["pow-iterations"])
         except:
             sys.exit(3)
 
@@ -546,17 +553,14 @@ class App:
         areYouSureToplevel.destroy()
 
     def doDownloadFile(self, id, errorLabel, queryResults):
-        queryResult = self.priveConnection.getFile(queryResults[id])
-        if queryResult["errorCode"] != "successful":
-            errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
-            return
         saveLocation = tkFileDialog.asksaveasfilename()
         if saveLocation == "":
             errorLabel.config(text="Download cancelled", fg="black")
             return
-        saveLocationFile = open(saveLocation, "w")
-        saveLocationFile.write(queryResult["file"])
-        saveLocationFile.close()
+        queryResult = self.priveConnection.getFile(queryResults[id], saveLocation)
+        if queryResult["errorCode"] != "successful":
+            errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
+            return
         errorLabel.config(text="Download successful", fg="green")
         return
 
@@ -569,10 +573,8 @@ class App:
             return
         errorLabel.config(text="Please wait...", fg="black")
         uploadFileTopLevel.update_idletasks()
-        fileObject = open(pathEntry.get(), "rb")
-        fileString = fileObject.read()
         try:
-            queryResult = self.priveConnection.addFile(os.path.basename(pathFile), fileString,
+            queryResult = self.priveConnection.addFile(os.path.basename(pathFile), pathEntry.get(),
                                                        visibility=visibility.get())
         except Exception as e:
             queryResult = {"errorCode": e.message}
