@@ -121,7 +121,7 @@ class FileSend(threading.Thread):
     def send(self, msg, encrypted=False, key=""):
         # type: (str, bool, str) -> None
         showTxt = msg.split(';')[0]
-        if showTxt != "msg: Segment Received Correctly":
+        if showTxt != "msg: Sending Segment":
             self.log("Sending {}".format(showTxt), saveToFile=False)
         if encrypted:
             msg = self.encryptWithPadding(key, msg)[1] + "\r\n"
