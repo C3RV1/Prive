@@ -521,10 +521,11 @@ class ClientHandle(threading.Thread):
             l_name = getFile.group(1)
             l_id = getFile.group(2)
 
-            l_databaseQueryResult = self.databaseManager.executeFunction("getFile", (l_name, l_id))
+            l_databaseQueryResult = self.databaseManager.executeFunction("getFile", (l_name, l_id,
+                                                                                     self))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            responseDict = {0: "msg: Returning fileB64;fileB64: " + l_databaseQueryResult[1] + ";errorCode: successful",
+            responseDict = {0: "msg: Returning fileB64;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",
                             2: "msg: Missing Public File List;errorCode: missingPUFL",
                             3: "msg: Missing Hidden File List;errorCode: missingHFL",
@@ -546,10 +547,11 @@ class ClientHandle(threading.Thread):
             l_signatureB64 = getPrivateFile.group(3)
 
             l_databaseQueryResult = self.databaseManager.executeFunction("getPrivateFile", (l_name, l_id,
-                                                                                            l_signatureB64))
+                                                                                            l_signatureB64,
+                                                                                            self))
             l_databaseQueryErrorCode = l_databaseQueryResult[0]
 
-            responseDict = {0: "msg: Returning fileB64;fileB64: " + l_databaseQueryResult[1] + ";errorCode: successful",
+            responseDict = {0: "msg: Returning fileB64;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",
                             2: "msg: Strange Error Where User Doesn't Have PK;errorCode: wtfHappenedToThePK",
                             3: "msg: Invalid Signature Characters;errorCode: invalidSignCh",

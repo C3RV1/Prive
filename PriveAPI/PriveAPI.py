@@ -543,14 +543,14 @@ class PriveAPIInstance:
         filesDict["errorCode"] = "successful"
         return filesDict
 
-    def getFile(self, fileDict, user=""):
+    def getFile(self, fileDict, outputPath, user=""):
         if user == "":
             if not self.loggedIn:
                 raise Exception("Not logged in")
             user = self.loggedInUser
 
         if fileDict["visibility"] == "Private":
-            return self.__getPrivateFile(user, fileDict)
+            return self.__getPrivateFile(user, fileDict, outputPath)
 
         getFileMessage = "getFile;name: " + user + ";id: " + fileDict["id"]
 
@@ -563,11 +563,33 @@ class PriveAPIInstance:
         response = response[1]
 
         msgDict = self.extractKeys(response)
-        if msgDict["errorCode"] == "successful":
-            msgDict["file"] = utils.base64_decode(msgDict["fileB64"])
+        if msgDict["errorCode"] != "successful":
+            return msgDict
+
+        self.autoKeepAlive.event.set()
+
+        ouFile = open(outputPath, "wb")
+        while True:
+            if not self.__sendMsg("segment") == 0:
+                raise Exception("Error Communicating with Server (Error 0)")
+
+            response = self.__receiveResponse()
+            if response[0] == 1:
+                raise Exception("Error Communicating with Server (Error 0)")
+
+            response = response[1]
+
+            msgDict = self.extractKeys(response)
+            if msgDict["errorCode"] != "successful" and msgDict["errorCode"] == "allSent":
+                msgDict["errorCode"] = "successful"
+                break
+            ouFile.write(utils.base64_decode(msgDict["data"]))
+        ouFile.close()
+
+        self.autoKeepAlive.event.clear()
         return msgDict
 
-    def __getPrivateFile(self, user, fileDict):
+    def __getPrivateFile(self, user, fileDict, outputPath):
         getPrivateFileMessage = "getPrivateFile;name: " + user + ";id: " + fileDict["id"]
         textToSign = SHA256.new(getPrivateFileMessage)
         signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
@@ -582,8 +604,26 @@ class PriveAPIInstance:
         response = response[1]
 
         msgDict = self.extractKeys(response)
-        if msgDict["errorCode"] == "successful":
-            msgDict["file"] = self.decryptWithPadding(self.loggedInPassword, utils.base64_decode(msgDict["fileB64"]))[1]
+        if msgDict["errorCode"] != "successful":
+            return msgDict
+
+        self.autoKeepAlive.event.set()
+
+        ouFile = open(outputPath, "wb")
+        while True:
+            response = self.__receiveResponse()
+            if response[0] == 1:
+                raise Exception("Error Communicating with Server (Error 0)")
+            response = response[1]
+
+            msgDict = self.extractKeys(response)
+            if msgDict["errorCode"] != "segment" and msgDict["errorCode"] == "successful":
+                break
+            msgDict["data"] = utils.base64_decode(msgDict["data"])
+            ouFile.write(self.decryptWithPadding(self.sessionKey, msgDict["data"])[1])
+        ouFile.close()
+
+        self.autoKeepAlive.event.clear()
         return msgDict
 
     def deleteFile(self, fileDict):

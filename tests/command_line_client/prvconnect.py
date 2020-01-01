@@ -170,15 +170,8 @@ class PRVConnect:
             self.priveConnection.close()
             sys.exit(0)
 
-        getFileRequest = self.priveConnection.getFile(fileList[id], user=self.user)
-        if getFileRequest["errorCode"] != "successful":
-            print "Error downloading file"
-            print "Error: {} ({})".format(getFileRequest["msg"], getFileRequest["errorCode"])
-            self.priveConnection.close()
-            sys.exit(0)
-
         if outputPath is None:
-            print getFileRequest["file"]
+            print "Output path not specified"
             self.priveConnection.close()
             sys.exit(0)
 
@@ -189,9 +182,13 @@ class PRVConnect:
             self.priveConnection.close()
             sys.exit(0)
 
-        outputFile = open(outputPath, "wb")
-        outputFile.write(getFileRequest["file"])
-        outputFile.close()
+        getFileRequest = self.priveConnection.getFile(fileList[id], outputPath, user=self.user)
+        if getFileRequest["errorCode"] != "successful":
+            print "Error downloading file"
+            print "Error: {} ({})".format(getFileRequest["msg"], getFileRequest["errorCode"])
+            self.priveConnection.close()
+            sys.exit(0)
+
         print "Saved successfully"
         self.priveConnection.close()
         sys.exit(0)

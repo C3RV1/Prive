@@ -16,6 +16,7 @@ import server
 from config import Config
 import fileTransfer
 import clientHandle
+import fileSend
 
 # ALL file management is done in this file and in generateKeys.py
 
@@ -78,8 +79,8 @@ class DatabaseManager(threading.Thread):
                                          "getPublicFileList": 1,
                                          "getHiddenFileList": 2,
                                          "getPrivateFileList": 2,
-                                         "getFile": 2,
-                                         "getPrivateFile": 3,
+                                         "getFile": 3,
+                                         "getPrivateFile": 4,
                                          "deleteFile": 3,
                                          "requestChallenge": 1}
 
@@ -917,7 +918,7 @@ class DatabaseManager(threading.Thread):
         return 7
 
     def addPrivateFile(self, user, fileNameB64, fileB64Size, signatureB64, clientHandler):
-        # type: (str, str, str, str, clientHandle.ClientHandle)
+        # type: (str, str, str, str, clientHandle.ClientHandle) -> int
         retValue = -1
         try:
             retValue = self.__addPrivateFile(user, fileNameB64, fileB64Size, signatureB64, clientHandler)
@@ -1161,17 +1162,17 @@ class DatabaseManager(threading.Thread):
 
         return [6, ""]
 
-    def getFile(self, user, fileIdB64):  # Works for both Public & Hidden Files
-        # type: (str, str) -> list
+    def getFile(self, user, fileIdB64, clientHandler):  # Works for both Public & Hidden Files
+        # type: (str, str, clientHandle.ClientHandle) -> list
         retValue = [-1, ""]
         try:
-            retValue = self.__getFile(user, fileIdB64)
-        except:
-            self.log("Error getFile", error=True)
+            retValue = self.__getFile(user, fileIdB64, clientHandler)
+        except Exception as e:
+            self.log("Error getFile: {}".format(e), error=True)
         return retValue
 
-    def __getFile(self, user, fileIdB64):
-        # type: (str, str) -> list
+    def __getFile(self, user, fileIdB64, clientHandler):
+        # type: (str, str, clientHandle.ClientHandle) -> list
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Missing Public File List (PUFL),
@@ -1223,15 +1224,15 @@ class DatabaseManager(threading.Thread):
         if fileIdB64 in allIds:
             if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
                 return [5, ""]
-            fileB64File = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd", "rb")
-            fileB64 = fileB64File.read()
-            fileB64File.close()
-            return [0, fileB64]
+            self.log("1227", debug=True)
+            fileSender = fileSend.FileSend(clientHandler, self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd")
+            fileSender.start()
+            return [0, ""]
         else:
             return [6, ""]
 
-    def getPrivateFile(self, user, fileIdB64, signatureB64):
-        # type: (str, str, str) -> list
+    def getPrivateFile(self, user, fileIdB64, signatureB64, clientHandler):
+        # type: (str, str, str, clientHandle.ClientHandle) -> list
         retValue = [-1, ""]
         try:
             retValue = self.__getPrivateFile(user, fileIdB64, signatureB64)
@@ -1239,8 +1240,8 @@ class DatabaseManager(threading.Thread):
             self.log("Error getPrivateFile", error=True)
         return retValue
 
-    def __getPrivateFile(self, user, fileIdB64, signatureB64):
-        # type: (str, str, str) -> list
+    def __getPrivateFile(self, user, fileIdB64, signatureB64, clientHandler):
+        # type: (str, str, str, clientHandle.ClientHandle) -> list
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Strange Error Where User Doesn't Have PK,
@@ -1302,10 +1303,10 @@ class DatabaseManager(threading.Thread):
             if fileIdB64 in allIds:
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
                     return [9, ""]
-                fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd", "rb")
-                fileContents = fileFile.read()
-                fileFile.close()
-                return [0, fileContents]
+                fileSender = fileSend.FileSend(clientHandler,
+                                               self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd")
+                fileSender.start()
+                return [0, ""]
             else:
                 return [8, ""]
 
