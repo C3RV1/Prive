@@ -13,10 +13,13 @@ import utils
 import random
 import math
 import string
+import os
 
 alphabet = list(string.ascii_lowercase)
 alphabet.extend(str(i) for i in range(0, 10))
 alphabet.extend(string.ascii_uppercase)
+
+bytes3ChunksToSend = 65536
 
 class AutoKeepAlive(threading.Thread):
 
@@ -25,9 +28,13 @@ class AutoKeepAlive(threading.Thread):
         threading.Thread.__init__(self)
         self.serverSock = serverSocket
         self.keepAliveMsg = keepAliveMsg
+        self.event = threading.Event()
 
     def run(self):
         while True:
+            if self.event.is_set():
+                time.sleep(0.2)
+                continue
             try:
                 self.serverSock.send(self.keepAliveMsg)
                 time.sleep(0.2)
@@ -154,6 +161,40 @@ class PriveAPIInstance:
 
         challenge = utils.base64_decode(msgDict["challenge"])
         return True, self.solveProofOfWork(challenge)
+
+    def sendFile(self, filePath, encrypted):
+        self.autoKeepAlive.event.set()
+        fileHandler = open(filePath, "rb")
+        segment = 0
+
+        msgDict = {}
+
+        while True:
+            dataToSend = fileHandler.read(3*bytes3ChunksToSend)
+            if dataToSend == "":
+                break
+            if encrypted:
+                dataToSend = self.encryptWithPadding(self.loggedInPassword, dataToSend)
+            dataToSend = utils.base64_encode(dataToSend)
+            segmentMessage = "segment;num: {};data: {}".format(segment, dataToSend)
+            if not self.__sendMsg(segmentMessage) == 0:
+                Exception("Error Communicating with Server (Error 0)")
+
+            response = self.__receiveResponse()
+            if response[0] == 1:
+                raise Exception("Error Communicating with Server (Error 0)")
+            response = response[1]
+
+            #print "DBG: {}".format(response)
+
+            msgDict = self.extractKeys(response)
+
+            if msgDict["errorCode"] != "successful":
+                raise Exception("Error Transfering File (Error 5): {}".format(msgDict))
+            segment += 1
+
+        self.autoKeepAlive.event.clear()
+        return msgDict
 
     def createUser(self, userName, password):
         # type: (str, str) -> dict
@@ -378,20 +419,23 @@ class PriveAPIInstance:
 
         return msgDict
 
-    def addFile(self, fileName, fileContents, visibility="Public"):
+    def addFile(self, fileName, filePath, visibility="Public"):
         if not self.loggedIn:
             raise Exception("Not logged in")
 
         if visibility != "Public" and visibility != "Hidden" and visibility != "Private":
             raise Exception("Visibility unknown")
 
-        fileNameB64 = utils.base64_encode(fileName)
-        if visibility == "Private":
-            fileContents = self.encryptWithPadding(self.loggedInPassword, fileContents)[1]
-        fileContentsB64 = utils.base64_encode(fileContents)
+        if not os.path.isfile(filePath):
+            raise Exception("File not found")
 
-        message = "add" + visibility + "File;name: " + self.loggedInUser + ";fileNameB64: " + fileNameB64 + ";fileB64: "
-        message = message + fileContentsB64
+        fileNameB64 = utils.base64_encode(fileName)
+
+        fileSize = int(math.ceil(os.stat(filePath).st_size/3)*4)
+
+        message = "add" + visibility + "File;name: " + self.loggedInUser + ";fileNameB64: " + fileNameB64 + ";fileB64Size: "
+        message = message + str(fileSize)
+        #print "BBG " + message
         textToSign = SHA256.new(message)
 
         signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
@@ -406,6 +450,9 @@ class PriveAPIInstance:
         response = response[1]
 
         msgDict = self.extractKeys(response)
+
+        if msgDict["errorCode"] == "successful":
+            msgDict = self.sendFile(filePath, visibility == "Private")
 
         return msgDict
 

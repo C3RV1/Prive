@@ -60,3 +60,10 @@ def checkProofOfWork(msgToVerify, pow0es, powIterations):
         return True
     else:
         return False
+
+def isInt(strToTest):
+    try:
+        num = int(strToTest)
+        return True
+    except:
+        return False

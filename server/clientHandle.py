@@ -58,9 +58,14 @@ class ClientHandle(threading.Thread):
         self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, timeout, databaseManager)
         self.timeOutController.start()
         self.runningEvent = threading.Event()
+        self.recvEvent = threading.Event()  # Lock if receiving file
 
     def run(self):
         while not self.runningEvent.is_set():
+            if self.recvEvent.is_set():
+                time.sleep(0.1)
+                self.timeOutController.resetTime()
+                continue
             try:
                 data = ""
                 while True:
@@ -348,20 +353,21 @@ class ClientHandle(threading.Thread):
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
-        addPublicFile = re.search("^addPublicFile;name: (.+);fileNameB64: (.+);fileB64: (.+);signatureB64: (.+)$",
+        addPublicFile = re.search("^addPublicFile;name: (.+);fileNameB64: (.+);fileB64Size: ([0-9]+);signatureB64: (.+)$",
                                   decryptedMessage)
 
         if addPublicFile:
             l_name = addPublicFile.group(1)
             l_fileNameB64 = addPublicFile.group(2)
-            l_fileB64 = addPublicFile.group(3)
+            l_fileB64Size = addPublicFile.group(3)
             l_signatureB64 = addPublicFile.group(4)
 
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("addPublicFile", (l_name, l_fileNameB64,
-                                                                                              l_fileB64,
-                                                                                              l_signatureB64))
+                                                                                              l_fileB64Size,
+                                                                                              l_signatureB64,
+                                                                                              self))
 
-            responseDict = {0: "msg: File Added;errorCode: successful",
+            responseDict = {0: "msg: Starting File Transmission;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",
                             2: "msg: Invalid Filename Characters;errorCode: invalidFilename",
                             3: "msg: Invalid File Characters;errorCode: invalidFileCharacters",
@@ -379,18 +385,19 @@ class ClientHandle(threading.Thread):
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
-        addHiddenFile = re.search("^addHiddenFile;name: (.+);fileNameB64: (.+);fileB64: (.+);signatureB64: (.+)$",
+        addHiddenFile = re.search("^addHiddenFile;name: (.+);fileNameB64: (.+);fileB64Size: ([0-9]+);signatureB64: (.+)$",
                                   decryptedMessage)
 
         if addHiddenFile:
             l_name = addHiddenFile.group(1)
             l_fileNameB64 = addHiddenFile.group(2)
-            l_fileB64 = addHiddenFile.group(3)
+            l_fileB64Size = addHiddenFile.group(3)
             l_signatureB64 = addHiddenFile.group(4)
 
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("addHiddenFile", (l_name, l_fileNameB64,
-                                                                                              l_fileB64,
-                                                                                              l_signatureB64))
+                                                                                              l_fileB64Size,
+                                                                                              l_signatureB64,
+                                                                                              self))
 
             responseDict = {0: "msg: File Added;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",
@@ -410,18 +417,19 @@ class ClientHandle(threading.Thread):
             self.send(msg, encrypted=True, key=sessionKey)
             return False
 
-        addPrivateFile = re.search("^addPrivateFile;name: (.+);fileNameB64: (.+);fileB64: (.+);signatureB64: (.+)$",
+        addPrivateFile = re.search("^addPrivateFile;name: (.+);fileNameB64: (.+);fileB64Size: ([0-9]+);signatureB64: (.+)$",
                                    decryptedMessage)
 
         if addPrivateFile:
             l_name = addPrivateFile.group(1)
             l_fileNameB64 = addPrivateFile.group(2)
-            l_fileB64 = addPrivateFile.group(3)
+            l_fileB64Size = addPrivateFile.group(3)
             l_signatureB64 = addPrivateFile.group(4)
 
             l_databaseQueryErrorCode = self.databaseManager.executeFunction("addPrivateFile", (l_name, l_fileNameB64,
-                                                                                               l_fileB64,
-                                                                                               l_signatureB64))
+                                                                                               l_fileB64Size,
+                                                                                               l_signatureB64,
+                                                                                               self))
 
             responseDict = {0: "msg: File Added;errorCode: successful",
                             1: "msg: User Doesn't Exist;errorCode: usrNotFound",

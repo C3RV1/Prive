@@ -11,7 +11,7 @@ class Config:
     CLIENT_TIMEOUT = 10
     KEYSIZE = 4096
     CLIENT_KEYSIZE = 2048
-    VERSION = "v1.0.0"
-    MAX_FILE_SIZE = 1000000  # 1mb in bytes
+    VERSION = "v2.0.0"
+    MAX_FILE_SIZE = 1000000000  # 1gb in bytes
     POW_NUM_OF_0 = 4  # Num of hexadecimal zeroes in front of verification
     POW_ITERATIONS = 2  # Num of hash iterations

@@ -14,6 +14,8 @@ import math
 import threading
 import server
 from config import Config
+import fileTransfer
+import clientHandle
 
 # ALL file management is done in this file and in generateKeys.py
 
@@ -34,6 +36,8 @@ class DatabaseManager(threading.Thread):
             os.mkdir(self.databaseDirectory + "/SessionKeys")
         if not os.path.isdir(self.databaseDirectory + "/Challenges"):
             os.mkdir(self.databaseDirectory + "/Challenges")
+        if not os.path.isdir(self.databaseDirectory + "/FileSegments"):
+            os.mkdir(self.databaseDirectory + "/FileSegments")
         #if not os.path.isdir(self.databaseDirectory + "\\Chats"):
         #    os.mkdir(self.databaseDirectory + "\\Chats")
 
@@ -68,9 +72,9 @@ class DatabaseManager(threading.Thread):
                                          "getPK": 1,
                                          "delUser": 2,
                                          "updateKeys": 6,
-                                         "addPublicFile": 4,
-                                         "addHiddenFile": 4,
-                                         "addPrivateFile": 4,
+                                         "addPublicFile": 5,
+                                         "addHiddenFile": 5,
+                                         "addPrivateFile": 5,
                                          "getPublicFileList": 1,
                                          "getHiddenFileList": 2,
                                          "getPrivateFileList": 2,
@@ -708,16 +712,17 @@ class DatabaseManager(threading.Thread):
 
     # File secction
 
-    def addPublicFile(self, user, fileNameB64, fileB64, signatureB64):
+    def addPublicFile(self, user, fileNameB64, fileB64Size, signatureB64, clientHandler):
+        # type: (str, str, str, str, clientHandle.ClientHandle) -> int
         retValue = -1
         try:
-            retValue = self.__addPublicFile(user, fileNameB64, fileB64, signatureB64)
+            retValue = self.__addPublicFile(user, fileNameB64, fileB64Size, signatureB64, clientHandler)
         except Exception as e:
             self.log("Error addPublicFile: {0}".format(e.message), error=True)
         return retValue
 
-    def __addPublicFile(self, user, fileNameB64, fileB64, signatureB64):
-        #type: (str, str, str, str) -> int
+    def __addPublicFile(self, user, fileNameB64, fileB64Size, signatureB64, clientHandler):
+        #type: (str, str, str, str, clientHandle.ClientHandle) -> int
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Invalid FileNameB64 Characters,
@@ -735,8 +740,10 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(fileNameB64):
             return 2
 
-        if not utils.isBase64(fileB64):
+        if not utils.isInt(fileB64Size):
             return 3
+
+        fileB64Size = int(fileB64Size)
 
         if not utils.isBase64(signatureB64):
             return 4
@@ -758,7 +765,7 @@ class DatabaseManager(threading.Thread):
 
         #self.log("Total size: {}".format(str(sum(publicFileListSizes))), debug=True)
 
-        if len(fileB64) + sum(publicFileListSizes) > (4*math.ceil(self.maxFileSize/3.0)):
+        if fileB64Size > (4*math.ceil(self.maxFileSize/3.0)) - sum(publicFileListSizes):
             return 9
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
@@ -771,7 +778,8 @@ class DatabaseManager(threading.Thread):
             return 6
 
         signatureToVerify = SHA256.new()
-        signatureToVerify.update("addPublicFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
+        signatureToVerify.update(
+            "addPublicFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64Size: " + str(fileB64Size))
         signature = utils.base64_decode(signatureB64)
 
         try:
@@ -787,31 +795,36 @@ class DatabaseManager(threading.Thread):
             while True:
                 randomIdB64 = utils.base64_encode(utils.get_random_bytes(48))
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
-                    break
+                    if not os.path.isdir(self.databaseDirectory + "/FileSegments/" + randomIdB64):
+                        break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            publicFileList = open(self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl", "ab")  # Stands for Public File List (PUFL)
-            publicFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64, str(len(fileB64))))
-            publicFileList.close()
+            os.mkdir(self.databaseDirectory + "/FileSegments/" + randomIdB64)
 
-            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd", "wb")  #Stands for File Data (FD). Also fileFile is funny.
-            fileFile.write(fileB64)
-            fileFile.close()
+            fileTrans = fileTransfer.FileTransfer(clientHandler.clientSocket, clientHandler.clientAddress,
+                                                  self, self.serverMaster, clientHandler.timeOutController.timeout,
+                                                  self.databaseDirectory + "/FileSegments/" + randomIdB64 + "/",
+                                                  fileB64Size,
+                                                  self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
+                                                  clientHandler, self.databaseDirectory + "/Profiles/" + user + "/publicFileList.pufl",
+                                                  "fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64, str(fileB64Size)))
+            fileTrans.start()
 
             return 0
 
         return 7
 
-    def addHiddenFile(self, user, fileNameB64, fileB64, signatureB64):
+    def addHiddenFile(self, user, fileNameB64, fileB64Size, signatureB64, clientHandler):
+        # type: (str, str, str, str, clientHandle.ClientHandle) -> int
         retValue = -1
         try:
-            retValue = self.__addHiddenFile(user, fileNameB64, fileB64, signatureB64)
+            retValue = self.__addHiddenFile(user, fileNameB64, fileB64Size, signatureB64, clientHandler)
         except:
             self.log("Error addHiddenFile", error=True)
         return retValue
 
-    def __addHiddenFile(self, user, fileNameB64, fileB64, signatureB64):
-        #type: (str, str, str, str) -> int
+    def __addHiddenFile(self, user, fileNameB64, fileB64Size, signatureB64, clientHandler):
+        #type: (str, str, str, str, clientHandle.ClientHandle) -> int
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Invalid FileNameB64 Characters,
@@ -829,8 +842,10 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(fileNameB64):
             return 2
 
-        if not utils.isBase64(fileB64):
+        if not utils.isInt(fileB64Size):
             return 3
+
+        fileB64Size = int(fileB64Size)
 
         if not utils.isBase64(signatureB64):
             return 4
@@ -850,7 +865,7 @@ class DatabaseManager(threading.Thread):
                 hiddenFileListSizes.append(int(hiddenFileListRe.group(3)))
         hiddenFileListFile.close()
 
-        if len(fileB64) > (4*math.ceil(self.maxFileSize/3.0)) - sum(hiddenFileListSizes):
+        if fileB64Size > (4*math.ceil(self.maxFileSize/3.0)) - sum(hiddenFileListSizes):
             return 9
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
@@ -863,7 +878,8 @@ class DatabaseManager(threading.Thread):
             return 6
 
         signatureToVerify = SHA256.new()
-        signatureToVerify.update("addHiddenFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
+        signatureToVerify.update(
+            "addHiddenFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64Size: " + str(fileB64Size))
         signature = utils.base64_decode(signatureB64)
 
         try:
@@ -879,33 +895,38 @@ class DatabaseManager(threading.Thread):
             while True:
                 randomIdB64 = utils.base64_encode(utils.get_random_bytes(48))
                 if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd"):
-                    break
+                    if not os.path.isdir(self.databaseDirectory + "/FileSegments/" + randomIdB64):
+                        break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            hiddenFileList = open(self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
-                                  "ab")  # Stands for Hidden File List (HFL)
-            hiddenFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64, str(len(fileB64))))
-            hiddenFileList.close()
+            os.mkdir(self.databaseDirectory + "/FileSegments/" + randomIdB64)
 
-            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
-                            "wb")  #Stands for File Data (FD). Also fileFile is funny.
-            fileFile.write(fileB64)
-            fileFile.close()
+            fileTrans = fileTransfer.FileTransfer(clientHandler.clientSocket, clientHandler.clientAddress,
+                                                  self, self.serverMaster, clientHandler.timeOutController.timeout,
+                                                  self.databaseDirectory + "/FileSegments/" + randomIdB64 + "/",
+                                                  fileB64Size,
+                                                  self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
+                                                  clientHandler,
+                                                  self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.pufl",
+                                                  "fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64,
+                                                                                         str(fileB64Size)))
+            fileTrans.start()
 
             return 0
 
         return 7
 
-    def addPrivateFile(self, user, fileNameB64, fileB64, signatureB64):
+    def addPrivateFile(self, user, fileNameB64, fileB64Size, signatureB64, clientHandler):
+        # type: (str, str, str, str, clientHandle.ClientHandle)
         retValue = -1
         try:
-            retValue = self.__addPrivateFile(user, fileNameB64, fileB64, signatureB64)
+            retValue = self.__addPrivateFile(user, fileNameB64, fileB64Size, signatureB64, clientHandler)
         except:
             self.log("Error addPrivateFile", error=True)
         return retValue
 
-    def __addPrivateFile(self, user, fileNameB64, fileB64, signatureB64):
-        #type: (str, str, str, str) -> int
+    def __addPrivateFile(self, user, fileNameB64, fileB64Size, signatureB64, clientHandler):
+        #type: (str, str, str, str, clientHandle.ClientHandle) -> int
         # Error Codes (0 - All Correct,
         #              1 - User Doesn't Exist,
         #              2 - Invalid FileNameB64 Characters,
@@ -923,8 +944,10 @@ class DatabaseManager(threading.Thread):
         if not utils.isBase64(fileNameB64):
             return 2
 
-        if not utils.isBase64(fileB64):
+        if not utils.isInt(fileB64Size):
             return 3
+
+        fileB64Size = int(fileB64Size)
 
         if not utils.isBase64(signatureB64):
             return 4
@@ -944,7 +967,7 @@ class DatabaseManager(threading.Thread):
                 privateFileSizes.append(int(privateFileListRe.group(3)))
         privateFileListFile.close()
 
-        if len(fileB64) > (4 * math.ceil(self.maxFileSize / 3.0)) - sum(privateFileSizes):
+        if fileB64Size > (4 * math.ceil(self.maxFileSize / 3.0)) - sum(privateFileSizes):
             return 9
 
         pkFile = open(self.databaseDirectory + "/Profiles/" + user + "/publickey.pk", "rb")
@@ -958,7 +981,7 @@ class DatabaseManager(threading.Thread):
 
         signatureToVerify = SHA256.new()
         signatureToVerify.update(
-            "addPrivateFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64: " + fileB64)
+            "addPrivateFile;name: " + user + ";fileNameB64: " + fileNameB64 + ";fileB64Size: " + str(fileB64Size))
         signature = utils.base64_decode(signatureB64)
 
         try:
@@ -977,16 +1000,18 @@ class DatabaseManager(threading.Thread):
                     break
                 self.log("1 in a 2^384 possibilities. AMAZINGGGGGG", debug=True)
 
-            privateFileList = open(self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
-                                   "ab")  # Stands for Private File List (PRFL)
-            privateFileList.write("fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64,
-                                                                            str(len(fileB64))))
-            privateFileList.close()
 
-            fileFile = open(self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
-                            "wb")  # Stands for File Data (FD). Also fileFile is funny.
-            fileFile.write(fileB64)
-            fileFile.close()
+            os.mkdir(self.databaseDirectory + "/FileSegments/" + randomIdB64)
+
+            fileTrans = fileTransfer.FileTransfer(clientHandler.clientSocket, clientHandler.clientAddress,
+                                                  self, self.serverMaster, clientHandler.timeOutController.timeout,
+                                                  self.databaseDirectory + "/FileSegments/" + randomIdB64 + "/",
+                                                  fileB64Size,
+                                                  self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
+                                                  clientHandler,
+                                                  self.databaseDirectory + "/Profiles/" + user + "/privateFileList.pufl",
+                                                  "fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64,
+                                                                                         str(fileB64Size)))
 
             return 0
 

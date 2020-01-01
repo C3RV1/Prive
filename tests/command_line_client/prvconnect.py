@@ -99,11 +99,8 @@ class PRVConnect:
         if not os.path.isfile(path):
             print "File not found"
             sys.exit(0)
-        f = open(path, "rb")
-        content = f.read()
-        f.close()
 
-        result = self.priveConnection.addFile(os.path.basename(path), content, "Public")
+        result = self.priveConnection.addFile(os.path.basename(path), path, "Public")
         if result["errorCode"] != "successful":
             print "Error uploading file"
             print "Error: {} ({})".format(result["msg"], result["errorCode"])
