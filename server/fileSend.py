@@ -20,7 +20,7 @@ class Timeout(threading.Thread):
         # type: (FileSend, socket.socket, tuple, int, databaseManager.DatabaseManager) -> None
         self.databaseManager = databaseManager
         self.clientAddr = clientAddr
-        self.log("Starting Timeout Thread on ClientFT " + clientAddr[0] + " " + str(clientAddr[1]))
+        self.log("Starting Timeout Thread on ClientFT " + clientAddr[0] + " " + str(clientAddr[1]), printOnScreen=False)
         threading.Thread.__init__(self)
         self.socket = sock
         self.startTimeout = time.time()
@@ -42,12 +42,13 @@ class Timeout(threading.Thread):
     def run(self):
         while not self.timeoutEvent.is_set():
             if time.time() - self.startTimeout >= self.timeout:
-                self.log("ClientFS " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout")
+                self.log("ClientFS " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout",
+                         printOnScreen=False)
                 self.clientHandlerMaster.clientHandle.closeAll()
                 self.clientHandlerMaster.endTransmission()
                 break
             time.sleep(1)
-        self.log("Exiting Timeout")
+        self.log("Exiting Timeout", printOnScreen=False)
 
 
 class FileSend(threading.Thread):
@@ -73,7 +74,7 @@ class FileSend(threading.Thread):
         self.segment = 0
 
     def run(self):
-        self.log("Starting file sending")
+        self.log("Starting file sending", printOnScreen=False)
         while not self.runningEvent.is_set():
             try:
                 data = ""
@@ -121,8 +122,8 @@ class FileSend(threading.Thread):
     def send(self, msg, encrypted=False, key=""):
         # type: (str, bool, str) -> None
         showTxt = msg.split(';')[0]
-        if showTxt != "msg: Sending Segment":
-            self.log("Sending {}".format(showTxt), saveToFile=False)
+        #if showTxt != "msg: Sending Segment":
+        #    self.log("Sending {}".format(showTxt), saveToFile=False)
         if encrypted:
             msg = self.encryptWithPadding(key, msg)[1] + "\r\n"
         else:

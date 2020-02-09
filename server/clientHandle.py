@@ -9,19 +9,21 @@ import threading
 import base64
 import time
 import utils
+from config import Config
 
 
 class Timeout(threading.Thread):
-    def __init__(self, clientHandlerMaster, sock, clientAddr, timeout, databaseManager):
-        # type: (ClientHandle, socket.socket, tuple, int, databaseManager.DatabaseManager) -> None
+    def __init__(self, clientHandlerMaster, sock, clientAddr, databaseManager):
+        # type: (ClientHandle, socket.socket, tuple, databaseManager.DatabaseManager) -> None
         self.databaseManager = databaseManager
         self.clientAddr = clientAddr
-        self.log("Starting Timeout Thread on Client " + clientAddr[0] + " " + str(clientAddr[1]))
+        self.log("Starting Timeout Thread on Client " + clientAddr[0] + " " + str(clientAddr[1]),
+                 printOnScreen=False)
         threading.Thread.__init__(self)
         self.socket = sock
         self.startTimeout = time.time()
         self.timeoutEvent = threading.Event()
-        self.timeout = timeout
+        self.timeout = Config.CLIENT_TIMEOUT
         self.clientHandlerMaster = clientHandlerMaster
 
     def log(self, msg, printOnScreen=True, debug=False):
@@ -38,24 +40,25 @@ class Timeout(threading.Thread):
     def run(self):
         while not self.timeoutEvent.is_set():
             if time.time() - self.startTimeout >= self.timeout:
-                self.log("Client " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout")
+                self.log("Client " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout",
+                         printOnScreen=False)
                 self.clientHandlerMaster.closeAll()
                 break
             time.sleep(1)
-        self.log("Exiting Timeout")
+        self.log("Exiting Timeout", printOnScreen=False)
 
 
 class ClientHandle(threading.Thread):
 
-    def __init__(self, clientSocket, clientAddress, databaseManager, serverMaster, timeout):
-        #type: (ClientHandle, socket.socket, tuple, databaseManager.DatabaseManager, server.Server, int) -> None
+    def __init__(self, clientSocket, clientAddress, databaseManager, serverMaster):
+        #type: (ClientHandle, socket.socket, tuple, databaseManager.DatabaseManager, server.Server) -> None
         threading.Thread.__init__(self)
         self.clientSocket = clientSocket
         self.clientAddress = clientAddress
         self.databaseManager = databaseManager
         self.serverMaster = serverMaster
         self.timeoutList = [0, False]  # Because all instances share the same object
-        self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, timeout, databaseManager)
+        self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, databaseManager)
         self.timeOutController.start()
         self.runningEvent = threading.Event()
         self.recvEvent = threading.Event()  # Lock if receiving file
@@ -91,30 +94,31 @@ class ClientHandle(threading.Thread):
             return
         self.runningEvent.set()
         self.databaseManager.deleteSessionKey(self.clientAddress[0], self.clientAddress[1])
-        self.log("Closing")
+        self.log("Closing", printOnScreen=False)
         try:
             self.clientSocket.close()
         except Exception:
-            self.log("Client Already Closed")
-        self.log("Removing Timeout")
+            self.log("Client Already Closed", printOnScreen=False)
+        self.log("Removing Timeout", printOnScreen=False)
         self.timeOutController.stop()
         try:
             self.timeOutController.join()
         except:
             pass
         self.timeOutController = None
-        self.log("Removing Self")
+        self.log("Removing Self", printOnScreen=False)
         self.serverMaster.deleteClientThread(self)
 
     def log(self, msg, printOnScreen=True, debug=False, error=False, saveToFile=True):
         # type: (str, bool, bool, bool, bool) -> None
         self.databaseManager.logger.log("Client:" + self.clientAddress[0] + ":" + str(self.clientAddress[1]),
-                                        msg, printToScreen=printOnScreen, debug=debug, error=error, saveToFile=saveToFile)
+                                        msg, printToScreen=printOnScreen, debug=debug, error=error,
+                                        saveToFile=saveToFile)
 
     def send(self, msg, encrypted=False, key=""):
         #type: (str, bool, str) -> None
         self.log("Sending [{}]".format(msg), printOnScreen=False)
-        self.log("Sending {}".format(msg.split(';')[0]), saveToFile=False)
+        #self.log("Sending {}".format(msg.split(';')[0]), saveToFile=False)
         if encrypted:
             msg = self.encryptWithPadding(key, msg)[1] + "\r\n"
         else:
@@ -139,7 +143,7 @@ class ClientHandle(threading.Thread):
 
         # Check if it was a session key message
         if sessionKeyRe:
-            self.log("Received session key", saveToFile=False)
+            # self.log("Received session key", saveToFile=False)
             if not sessionKey[0]:
                 validSEK = self.databaseManager.newSessionKey(self.clientAddress[0], self.clientAddress[1],
                                                                     sessionKeyRe.group(1))
@@ -164,7 +168,7 @@ class ClientHandle(threading.Thread):
             if decryptedMessage[i] == ';':
                 break
             showTxt += decryptedMessage[i]
-        self.log("Received: [" + showTxt + "]", saveToFile=False)
+        # self.log("Received: [" + showTxt + "]", saveToFile=False)
         if showTxt != "keepAlive":
             self.log("Received: [" + decryptedMessage + "]", printOnScreen=False)
 

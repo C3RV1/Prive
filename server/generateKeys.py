@@ -4,18 +4,18 @@ import os
 import utils
 import sys
 import json
-import config
+from config import Config
 
 class GenerateKeys:
-    def __init__(self, databaseDirectory, keySize):
-        self.databaseDirectory = databaseDirectory
-        self.keySize = keySize
+    def __init__(self):
+        self.databaseDirectory = Config.DATABASE_PATH
+        self.keySize = Config.CLIENT_KEYSIZE
 
     def generate(self):
         #type: () -> None
 
         if not os.path.isdir(self.databaseDirectory):
-            print "Error in generateKeys.py, Line {0}: Database directory not found".format(utils.lineno())
+            print "Error in generateKeys.py: Database directory not found"
             print "Aborting operation"
             sys.exit(1)
 
@@ -32,12 +32,12 @@ class GenerateKeys:
         publicKeyFile.write(newPublicKeyExported)
         publicKeyFile.close()
 
-        configDict = {"host": config.Config.HOST,
-                      "port": config.Config.PORT,
-                      "key-size": config.Config.CLIENT_KEYSIZE,
+        configDict = {"host": Config.HOST,
+                      "port": Config.PORT,
+                      "key-size": Config.CLIENT_KEYSIZE,
                       "rsa-key": newPublicKeyExported,
-                      "pow-0es": config.Config.POW_NUM_OF_0,
-                      "pow-iterations": config.Config.POW_ITERATIONS}
+                      "pow-0es": Config.POW_NUM_OF_0,
+                      "pow-iterations": Config.POW_ITERATIONS}
 
         print "Creating Prive Config File (PCF) with conf: \n"
 

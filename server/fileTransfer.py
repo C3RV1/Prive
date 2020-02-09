@@ -19,7 +19,7 @@ class Timeout(threading.Thread):
         # type: (FileTransfer, socket.socket, tuple, int, databaseManager.DatabaseManager) -> None
         self.databaseManager = databaseManager
         self.clientAddr = clientAddr
-        self.log("Starting Timeout Thread on ClientFT " + clientAddr[0] + " " + str(clientAddr[1]))
+        self.log("Starting Timeout Thread on ClientFT " + clientAddr[0] + " " + str(clientAddr[1]), printOnScreen=False)
         threading.Thread.__init__(self)
         self.socket = sock
         self.startTimeout = time.time()
@@ -41,12 +41,13 @@ class Timeout(threading.Thread):
     def run(self):
         while not self.timeoutEvent.is_set():
             if time.time() - self.startTimeout >= self.timeout:
-                self.log("ClientFT " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout")
+                self.log("ClientFT " + self.clientAddr[0] + " " + str(self.clientAddr[1]) + " has reached the timeout",
+                         printOnScreen=False)
                 self.clientHandlerMaster.clientHandle.closeAll()
                 self.clientHandlerMaster.endTransmission()
                 break
             time.sleep(1)
-        self.log("Exiting Timeout")
+        self.log("Exiting Timeout", printOnScreen=False)
 
 
 class FileTransfer(threading.Thread):
@@ -77,7 +78,7 @@ class FileTransfer(threading.Thread):
         self.listData = listData
 
     def run(self):
-        self.log("Starting file transmission")
+        self.log("Starting file transmission", printOnScreen=False)
         while not self.runningEvent.is_set():
             try:
                 data = ""
@@ -106,8 +107,8 @@ class FileTransfer(threading.Thread):
         if self.runningEvent.is_set():
             return
         self.runningEvent.set()
-        self.log("Ending transmission")
-        self.log("Removing Timeout")
+        self.log("Ending transmission", printOnScreen=False)
+        self.log("Removing Timeout", printOnScreen=False)
         try:
             shutil.rmtree(self.tmpFolder[:-1])
         except:
@@ -129,8 +130,8 @@ class FileTransfer(threading.Thread):
     def send(self, msg, encrypted=False, key=""):
         #type: (str, bool, str) -> None
         showTxt = msg.split(';')[0]
-        if showTxt != "msg: Segment Received Correctly":
-            self.log("Sending {}".format(showTxt), saveToFile=False)
+        #if showTxt != "msg: Segment Received Correctly":
+        #    self.log("Sending {}".format(showTxt), saveToFile=False)
         if encrypted:
             msg = self.encryptWithPadding(key, msg)[1] + "\r\n"
         else:
@@ -194,7 +195,7 @@ class FileTransfer(threading.Thread):
 
         msg = "msg: Invalid Request;errorCode: invalidReq"
         self.send(msg, encrypted=True, key=sessionKey)
-        return False
+        return True
 
     @staticmethod
     def encryptWithPadding(key, plaintext):

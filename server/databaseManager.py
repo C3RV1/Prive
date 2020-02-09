@@ -17,17 +17,17 @@ from config import Config
 import fileTransfer
 import clientHandle
 import fileSend
+from config import Config
 
 # ALL file management is done in this file and in generateKeys.py
 
 class DatabaseManager(threading.Thread):
 
-    def __init__(self, databaseDirectory, logFile, unacceptedNameCharacters, keySize, maxFileSize,
-                 serverMaster):
-        #type: (DatabaseManager, str, str, str, int, int, server.Server) -> None
+    def __init__(self, serverMaster):
+        #type: (server.Server) -> None
         threading.Thread.__init__(self)
-        self.databaseDirectory = databaseDirectory
-        self.unacceptedNameCharacters = unacceptedNameCharacters
+        self.databaseDirectory = Config.DATABASE_PATH
+        self.unacceptedNameCharacters = Config.ALLOWED_NAME_CHARCTERS_RE
 
         if not os.path.isdir(self.databaseDirectory):
             os.mkdir(self.databaseDirectory)
@@ -47,7 +47,7 @@ class DatabaseManager(threading.Thread):
         if not os.path.isfile(privateKeyPath):
             print "Private key not found"
             print "Creating private key"
-            genKeyObj = generateKeys.GenerateKeys(self.databaseDirectory, keySize)
+            genKeyObj = generateKeys.GenerateKeys()
             genKeyObj.generate()
 
         privateKeyFile = open(privateKeyPath, "rb")
@@ -55,8 +55,8 @@ class DatabaseManager(threading.Thread):
         self.privateKey = RSA.importKey(privateKeyStr)
 
         self.databaseLock = threading.Lock()
-        self.logger = logger.Logger(logFile)
-        self.maxFileSize = maxFileSize
+        self.logger = logger.Logger()
+        self.maxFileSize = Config.MAX_FILE_SIZE
         self.serverMaster = serverMaster
 
         self.availableFunctions = ["newUser", "getVTAesB64", "checkVT", "getSK", "getPK",
@@ -310,6 +310,7 @@ class DatabaseManager(threading.Thread):
 
         challengeFile = open(self.databaseDirectory + "/Challenges/" + ip + ".chll", "rb")
         challenge = challengeFile.read()
+        challengeFile.close()
 
         try:
             challenge = utils.base64_decode(challenge)
@@ -1233,7 +1234,6 @@ class DatabaseManager(threading.Thread):
         if fileIdB64 in allIds:
             if not os.path.isfile(self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd"):
                 return [5, ""]
-            self.log("1227", debug=True)
             fileSender = fileSend.FileSend(clientHandler, self.databaseDirectory + "/Profiles/" + user + "/" + fileIdB64 + ".fd")
             fileSender.start()
             return [0, ""]
