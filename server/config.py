@@ -8,9 +8,9 @@ class Config:
     DATABASE_PATH = "../PriveDatabase"
     LOGFILE = "prive"
     LOGFOLDER = "../log"
-    LOG_FILE_DIFF = "%a"  # Difference at the end of log file names to know where they were created
+    LOG_FILE_DIFF = "%A"  # Difference at the end of log file names to know where they were created
 
-    # Note: %a means that it will be replaced with the abbreviation of the day of the week, meaning
+    # Note: %A means that it will be replaced with the day of the week, meaning
     #       that it will overwrite the log files every week.
 
     ALLOWED_NAME_CHARCTERS_RE = "^[A-Za-z0-9._]+$"
