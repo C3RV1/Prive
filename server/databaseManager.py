@@ -813,7 +813,7 @@ class DatabaseManager(threading.Thread):
             os.mkdir(self.databaseDirectory + "/FileSegments/" + randomIdB64)
 
             fileTrans = fileTransfer.FileTransfer(clientHandler.clientSocket, clientHandler.clientAddress,
-                                                  self, self.serverMaster, clientHandler.timeOutController.timeout,
+                                                  self, self.serverMaster,
                                                   self.databaseDirectory + "/FileSegments/" + randomIdB64 + "/",
                                                   fileB64Size,
                                                   self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
@@ -913,12 +913,12 @@ class DatabaseManager(threading.Thread):
             os.mkdir(self.databaseDirectory + "/FileSegments/" + randomIdB64)
 
             fileTrans = fileTransfer.FileTransfer(clientHandler.clientSocket, clientHandler.clientAddress,
-                                                  self, self.serverMaster, clientHandler.timeOutController.timeout,
+                                                  self, self.serverMaster,
                                                   self.databaseDirectory + "/FileSegments/" + randomIdB64 + "/",
                                                   fileB64Size,
                                                   self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
                                                   clientHandler,
-                                                  self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.pufl",
+                                                  self.databaseDirectory + "/Profiles/" + user + "/hiddenFileList.hfl",
                                                   "fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64,
                                                                                          str(fileB64Size)))
             fileTrans.start()
@@ -1015,14 +1015,15 @@ class DatabaseManager(threading.Thread):
             os.mkdir(self.databaseDirectory + "/FileSegments/" + randomIdB64)
 
             fileTrans = fileTransfer.FileTransfer(clientHandler.clientSocket, clientHandler.clientAddress,
-                                                  self, self.serverMaster, clientHandler.timeOutController.timeout,
+                                                  self, self.serverMaster,
                                                   self.databaseDirectory + "/FileSegments/" + randomIdB64 + "/",
                                                   fileB64Size,
                                                   self.databaseDirectory + "/Profiles/" + user + "/" + randomIdB64 + ".fd",
                                                   clientHandler,
-                                                  self.databaseDirectory + "/Profiles/" + user + "/privateFileList.pufl",
+                                                  self.databaseDirectory + "/Profiles/" + user + "/privateFileList.prfl",
                                                   "fileName:{0}.id:{1}.size:{2},".format(fileNameB64, randomIdB64,
                                                                                          str(fileB64Size)))
+            fileTrans.start()
 
             return 0
 
@@ -1244,8 +1245,8 @@ class DatabaseManager(threading.Thread):
         # type: (str, str, str, clientHandle.ClientHandle) -> list
         retValue = [-1, ""]
         try:
-            retValue = self.__getPrivateFile(user, fileIdB64, signatureB64)
-        except:
+            retValue = self.__getPrivateFile(user, fileIdB64, signatureB64, clientHandler)
+        except Exception as e:
             self.log("Error getPrivateFile", error=True)
         return retValue
 

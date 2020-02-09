@@ -3,6 +3,7 @@ import argparse
 import os
 import sys
 import json
+from math import *
 
 def nameToMoreLong(name, chars):
     if len(name) <= chars - 3:
@@ -100,7 +101,8 @@ class PRVConnect:
             print "File not found"
             sys.exit(0)
 
-        result = self.priveConnection.addFile(os.path.basename(path), path, "Public")
+        result = self.priveConnection.addFile(os.path.basename(path), path, "Public",
+                                              progressFunction=self.progressFunction)
         if result["errorCode"] != "successful":
             print "Error uploading file"
             print "Error: {} ({})".format(result["msg"], result["errorCode"])
@@ -119,11 +121,9 @@ class PRVConnect:
         if not os.path.isfile(path):
             print "File not found"
             sys.exit(0)
-        f = open(path, "rb")
-        content = f.read()
-        f.close()
 
-        result = self.priveConnection.addFile(os.path.basename(path), content, "Hidden")
+        result = self.priveConnection.addFile(os.path.basename(path), path, "Hidden",
+                                              progressFunction=self.progressFunction)
         if result["errorCode"] != "successful":
             print "Error uploading file"
             print "Error: {} ({})".format(result["msg"], result["errorCode"])
@@ -142,11 +142,9 @@ class PRVConnect:
         if not os.path.isfile(path):
             print "File not found"
             sys.exit(0)
-        f = open(path, "rb")
-        content = f.read()
-        f.close()
 
-        result = self.priveConnection.addFile(os.path.basename(path), content, "Private")
+        result = self.priveConnection.addFile(os.path.basename(path), path, "Private",
+                                              progressFunction=self.progressFunction)
         if result["errorCode"] != "successful":
             print "Error uploading file"
             print "Error: {} ({})".format(result["msg"], result["errorCode"])
@@ -182,7 +180,8 @@ class PRVConnect:
             self.priveConnection.close()
             sys.exit(0)
 
-        getFileRequest = self.priveConnection.getFile(fileList[id], outputPath, user=self.user)
+        getFileRequest = self.priveConnection.getFile(fileList[id], outputPath, user=self.user,
+                                                      progressFunction=self.progressFunction)
         if getFileRequest["errorCode"] != "successful":
             print "Error downloading file"
             print "Error: {} ({})".format(getFileRequest["msg"], getFileRequest["errorCode"])
@@ -306,6 +305,45 @@ class PRVConnect:
         print "User deleted successfully"
         self.priveConnection.close()
         sys.exit(0)
+
+    def progressFunction(self, currentValue, maxValue, function):
+        progressPercentage = float(currentValue) / float(maxValue)
+        characters = 50
+        blockCharacters = chr(219)*int(round(progressPercentage*characters))
+        dashCharacters = "-"*(50-int(round(progressPercentage*characters)))
+        if function == 0:
+            sys.stdout.write("Uploading: {}{} {}% {}KB / {}KB\r".format(blockCharacters,
+                                                                        dashCharacters,
+                                                                        floor(progressPercentage*100),
+                                                                        floor(currentValue/1000),
+                                                                        floor(maxValue/1000)))
+            if progressPercentage >= 1:
+                sys.stdout.write("\n")
+        elif function == 1:
+            sys.stdout.write("Encrypting: {}{} {}% {}KB / {}KB\r".format(blockCharacters,
+                                                                         dashCharacters,
+                                                                         floor(progressPercentage * 100),
+                                                                         floor(currentValue/1000),
+                                                                         floor(maxValue/1000)))
+            if progressPercentage >= 1:
+                sys.stdout.write("\n")
+        elif function == 2:
+            sys.stdout.write("Downloading: {}{} {}% {}KB / {}KB\r".format(blockCharacters,
+                                                                          dashCharacters,
+                                                                          floor(progressPercentage * 100),
+                                                                          floor(currentValue/1000),
+                                                                          floor(maxValue/1000)))
+            if progressPercentage >= 1:
+                sys.stdout.write("\n")
+        elif function == 3:
+            sys.stdout.write("Decrypting: {}{} {}% {}KB / {}KB\r".format(blockCharacters,
+                                                                         dashCharacters,
+                                                                         floor(progressPercentage * 100),
+                                                                         floor(currentValue/1000),
+                                                                         floor(maxValue/1000)))
+            if progressPercentage >= 1:
+                sys.stdout.write("\n")
+        pass
 
 parser = argparse.ArgumentParser(description="Communicate with a Prive Server")
 parser.add_argument("--pcf", nargs=1, default=["priveConfigFile.pcf"], metavar="<pcf path>",

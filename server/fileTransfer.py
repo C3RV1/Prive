@@ -12,11 +12,12 @@ import utils
 import os
 import shutil
 import clientHandle
+from config import Config
 
 
 class Timeout(threading.Thread):
-    def __init__(self, clientHandlerMaster, sock, clientAddr, timeout, databaseManager):
-        # type: (FileTransfer, socket.socket, tuple, int, databaseManager.DatabaseManager) -> None
+    def __init__(self, clientHandlerMaster, sock, clientAddr, databaseManager):
+        # type: (FileTransfer, socket.socket, tuple, databaseManager.DatabaseManager) -> None
         self.databaseManager = databaseManager
         self.clientAddr = clientAddr
         self.log("Starting Timeout Thread on ClientFT " + clientAddr[0] + " " + str(clientAddr[1]), printOnScreen=False)
@@ -24,7 +25,7 @@ class Timeout(threading.Thread):
         self.socket = sock
         self.startTimeout = time.time()
         self.timeoutEvent = threading.Event()
-        self.timeout = timeout
+        self.timeout = Config.CLIENT_TIMEOUT
         self.clientHandlerMaster = clientHandlerMaster
 
     def log(self, msg, printOnScreen=True, debug=False):
@@ -52,16 +53,16 @@ class Timeout(threading.Thread):
 
 class FileTransfer(threading.Thread):
 
-    def __init__(self, clientSocket, clientAddress, databaseManager, serverMaster, timeout,
-                 tmpFolder, recvSize, endFilePath, clientHandle, listPath, listData):
-        #type: (socket.socket, tuple, databaseManager.DatabaseManager, server.Server, int, str, int, str, clientHandle.ClientHandle, str, str) -> None
+    def __init__(self, clientSocket, clientAddress, databaseManager, serverMaster, tmpFolder, recvSize, endFilePath,
+                 clientHandle, listPath, listData):
+        #type: (socket.socket, tuple, databaseManager.DatabaseManager, server.Server, str, int, str, clientHandle.ClientHandle, str, str) -> None
         threading.Thread.__init__(self)
         self.clientSocket = clientSocket
         self.clientAddress = clientAddress
         self.databaseManager = databaseManager
         self.serverMaster = serverMaster
         self.timeoutList = [0, False]  # Because all instances share the same object
-        self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, timeout, databaseManager)
+        self.timeOutController = Timeout(self, self.clientSocket, self.clientAddress, databaseManager)
         self.timeOutController.start()
         self.runningEvent = threading.Event()
 

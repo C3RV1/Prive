@@ -14,6 +14,7 @@ import random
 import math
 import string
 import os
+import sys
 
 alphabet = list(string.ascii_lowercase)
 alphabet.extend(str(i) for i in range(0, 10))
@@ -162,19 +163,20 @@ class PriveAPIInstance:
         challenge = utils.base64_decode(msgDict["challenge"])
         return True, self.solveProofOfWork(challenge)
 
-    def sendFile(self, filePath, encrypted):
+    def sendFile(self, filePath, fileSize, progressFunction=None):
         self.autoKeepAlive.event.set()
         fileHandler = open(filePath, "rb")
         segment = 0
 
         msgDict = {}
 
+        currentBytesSent = 0
+
         while True:
             dataToSend = fileHandler.read(3*bytes3ChunksToSend)
+            currentBytesSent += len(dataToSend)
             if dataToSend == "":
                 break
-            if encrypted:
-                dataToSend = self.encryptWithPadding(self.loggedInPassword, dataToSend)
             dataToSend = utils.base64_encode(dataToSend)
             segmentMessage = "segment;num: {};data: {}".format(segment, dataToSend)
             if not self.__sendMsg(segmentMessage) == 0:
@@ -192,6 +194,9 @@ class PriveAPIInstance:
             if msgDict["errorCode"] != "successful":
                 raise Exception("Error Transfering File (Error 5): {}".format(msgDict))
             segment += 1
+
+            if not progressFunction is None:
+                progressFunction(currentBytesSent, fileSize, 0)
 
         self.autoKeepAlive.event.clear()
         return msgDict
@@ -419,7 +424,7 @@ class PriveAPIInstance:
 
         return msgDict
 
-    def addFile(self, fileName, filePath, visibility="Public"):
+    def addFile(self, fileName, filePath, visibility="Public", progressFunction=None):
         if not self.loggedIn:
             raise Exception("Not logged in")
 
@@ -429,9 +434,35 @@ class PriveAPIInstance:
         if not os.path.isfile(filePath):
             raise Exception("File not found")
 
-        fileNameB64 = utils.base64_encode(fileName)
-
         fileSize = int(math.ceil(os.stat(filePath).st_size/3)*4)
+        fileSize2 = os.stat(filePath).st_size
+
+        if visibility == "Private":
+            # Encrypt file before sending
+            tmpPrivateFilePath = "{}.tmp".format(utils.base64_encode(get_random_bytes(8)))
+            tmpPrivateFile = open(tmpPrivateFilePath, "wb")
+            fileHandler = open(filePath, "rb")
+            currentBytesEncrypted = 0
+            while True:
+                fileData = fileHandler.read(65536*2)
+                currentBytesEncrypted += len(fileData)
+                if fileData == "":
+                    break
+                if len(fileData) != 65536*2:
+                    fileData = utils.base64_decode(self.encryptWithPadding(self.loggedInPassword, fileData)[1])
+                else:
+                    fileData = utils.base64_decode(self.encryptWithPadding(self.loggedInPassword, fileData,
+                                                                           usePadding=False)[1])
+
+                if progressFunction is not None:
+                    progressFunction(currentBytesEncrypted, fileSize2, 1)
+
+                tmpPrivateFile.write(fileData)
+            tmpPrivateFile.close()
+            fileHandler.close()
+            filePath = tmpPrivateFilePath
+
+        fileNameB64 = utils.base64_encode(fileName)
 
         message = "add" + visibility + "File;name: " + self.loggedInUser + ";fileNameB64: " + fileNameB64 + ";fileB64Size: "
         message = message + str(fileSize)
@@ -452,7 +483,10 @@ class PriveAPIInstance:
         msgDict = self.extractKeys(response)
 
         if msgDict["errorCode"] == "successful":
-            msgDict = self.sendFile(filePath, visibility == "Private")
+            msgDict = self.sendFile(filePath, fileSize2, progressFunction=progressFunction)
+
+        if visibility == "Private":
+            os.remove(filePath)
 
         return msgDict
 
@@ -543,14 +577,14 @@ class PriveAPIInstance:
         filesDict["errorCode"] = "successful"
         return filesDict
 
-    def getFile(self, fileDict, outputPath, user=""):
+    def getFile(self, fileDict, outputPath, user="", progressFunction=None):
         if user == "":
             if not self.loggedIn:
                 raise Exception("Not logged in")
             user = self.loggedInUser
 
         if fileDict["visibility"] == "Private":
-            return self.__getPrivateFile(user, fileDict, outputPath)
+            return self.__getPrivateFile(user, fileDict, outputPath, progressFunction=progressFunction)
 
         getFileMessage = "getFile;name: " + user + ";id: " + fileDict["id"]
 
@@ -569,6 +603,9 @@ class PriveAPIInstance:
         self.autoKeepAlive.event.set()
 
         ouFile = open(outputPath, "wb")
+
+        currentBytesReceived = 0
+
         while True:
             if not self.__sendMsg("segment") == 0:
                 raise Exception("Error Communicating with Server (Error 0)")
@@ -583,13 +620,19 @@ class PriveAPIInstance:
             if msgDict["errorCode"] != "successful" and msgDict["errorCode"] == "allSent":
                 msgDict["errorCode"] = "successful"
                 break
-            ouFile.write(utils.base64_decode(msgDict["data"]))
+            dataToWrite = utils.base64_decode(msgDict["data"])
+
+            currentBytesReceived += len(dataToWrite)
+            if progressFunction is not None:
+                progressFunction(currentBytesReceived, fileDict["size"], 2)
+
+            ouFile.write(dataToWrite)
         ouFile.close()
 
         self.autoKeepAlive.event.clear()
         return msgDict
 
-    def __getPrivateFile(self, user, fileDict, outputPath):
+    def __getPrivateFile(self, user, fileDict, outputPath, progressFunction=None):
         getPrivateFileMessage = "getPrivateFile;name: " + user + ";id: " + fileDict["id"]
         textToSign = SHA256.new(getPrivateFileMessage)
         signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
@@ -609,19 +652,57 @@ class PriveAPIInstance:
 
         self.autoKeepAlive.event.set()
 
-        ouFile = open(outputPath, "wb")
+        tmpPrivateFilePath = "{}.tmp".format(utils.base64_encode(get_random_bytes(8)))
+        tmpPrivateFile = open(tmpPrivateFilePath, "wb")
+
+        currentBytesReceived = 0
+
         while True:
+            if not self.__sendMsg("segment") == 0:
+                raise Exception("Error Communicating with Server (Error 0)")
+
             response = self.__receiveResponse()
             if response[0] == 1:
                 raise Exception("Error Communicating with Server (Error 0)")
             response = response[1]
 
             msgDict = self.extractKeys(response)
-            if msgDict["errorCode"] != "segment" and msgDict["errorCode"] == "successful":
+            if msgDict["errorCode"] != "successful" and msgDict["errorCode"] == "allSent":
+                msgDict["errorCode"] = "successful"
                 break
             msgDict["data"] = utils.base64_decode(msgDict["data"])
-            ouFile.write(self.decryptWithPadding(self.sessionKey, msgDict["data"])[1])
+
+            currentBytesReceived += len(msgDict["data"])
+
+            if progressFunction is not None:
+                progressFunction(currentBytesReceived, fileDict["size"], 2)
+
+            tmpPrivateFile.write(msgDict["data"])
+
+        tmpPrivateFile.close()
+
+        tmpPrivateFile = open(tmpPrivateFilePath, "rb")
+        ouFile = open(outputPath, "wb")
+
+        currentBytesDecrypted = 0
+
+        while True:
+            data = tmpPrivateFile.read(65536*2)
+            if data == "":
+                break
+            if len(data) != 65536*2:
+                ouFile.write(self.decryptWithPadding(self.loggedInPassword, utils.base64_encode(data))[1])
+            else:
+                ouFile.write(self.decryptWithPadding(self.loggedInPassword, utils.base64_encode(data),
+                                                     usePadding=False)[1])
+            currentBytesDecrypted += len(data)
+            if progressFunction is not None:
+                progressFunction(currentBytesDecrypted, fileDict["size"], 3)
+
+
         ouFile.close()
+        tmpPrivateFile.close()
+        os.remove(tmpPrivateFilePath)
 
         self.autoKeepAlive.event.clear()
         return msgDict
@@ -749,8 +830,8 @@ class PriveAPIInstance:
 
     # Encrypt Using AES and Padding
     @staticmethod
-    def encryptWithPadding(key, plaintext):
-        # type: (str, str) -> tuple
+    def encryptWithPadding(key, plaintext, usePadding=True):
+        # type: (str, str, bool) -> tuple
         """
 
         Encrypts plaintext param with AES using key param as key.
@@ -764,7 +845,12 @@ class PriveAPIInstance:
         :return: ErrorCode, Ciphertext
         """
         length = (16 - (len(plaintext) % 16)) + 16 * random.randint(0, 14)
-        plaintextPadded = plaintext + PriveAPIInstance.getRandString(length - 1) + chr(length)
+
+        if usePadding:
+            plaintextPadded = plaintext + PriveAPIInstance.getRandString(length - 1) + chr(length)
+        else:
+            plaintextPadded = plaintext
+
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
         ciphertext = utils.base64_encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
@@ -772,8 +858,8 @@ class PriveAPIInstance:
 
     # Decrypt Using AES padded message
     @staticmethod
-    def decryptWithPadding(key, ciphertext):
-        # type: (str, str) -> tuple
+    def decryptWithPadding(key, ciphertext, usePadding=True):
+        # type: (str, str, bool) -> tuple
         """
 
         Decrypts ciphertext param using key param as key.
@@ -789,7 +875,10 @@ class PriveAPIInstance:
             return False, ""
         ciphertextNotB64 = utils.base64_decode(ciphertext)
         plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
-        plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
+        if usePadding:
+            plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
+        else:
+            plaintext = plaintextPadded
         return True, plaintext
 
     # Extract Data from Prive Message (msgData, errorCode)
