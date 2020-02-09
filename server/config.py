@@ -17,7 +17,7 @@ class Config:
     CLIENT_TIMEOUT = 10
     KEYSIZE = 4096
     CLIENT_KEYSIZE = 2048
-    VERSION = "v2.2.0"
+    VERSION = "v2.4.0"
     MAX_FILE_SIZE = 1000000000  # 1gb in bytes
                                 # Maximum user size: 4000000000
 
