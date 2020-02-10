@@ -54,6 +54,7 @@ class PRVConnect:
                                                              serverPort=config["port"],
                                                              proofOfWork0es=config["pow-0es"],
                                                              proofOfWorkIterations=config["pow-iterations"])
+            self.priveConnection.connect()
         except Exception as e:
             print "Error stablishing connection (prive connection)"
             print "Error {}".format(e)
