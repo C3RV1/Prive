@@ -313,7 +313,7 @@ class PRVConnect:
         blockCharacters = chr(219)*int(round(progressPercentage*characters))
         dashCharacters = "-"*(50-int(round(progressPercentage*characters)))
         if function == 0:
-            sys.stdout.write("Uploading: {}{} {}% {}KB / {}KB\r".format(blockCharacters,
+            sys.stdout.write("Uploading:   {}{} {}% {}KB / {}KB\r".format(blockCharacters,
                                                                         dashCharacters,
                                                                         floor(progressPercentage*100),
                                                                         floor(currentValue/1000),
@@ -321,11 +321,11 @@ class PRVConnect:
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
         elif function == 1:
-            sys.stdout.write("Encrypting: {}{} {}% {}KB / {}KB\r".format(blockCharacters,
-                                                                         dashCharacters,
-                                                                         floor(progressPercentage * 100),
-                                                                         floor(currentValue/1000),
-                                                                         floor(maxValue/1000)))
+            sys.stdout.write("Encrypting:  {}{} {}% {}KB / {}KB\r".format(blockCharacters,
+                                                                          dashCharacters,
+                                                                          floor(progressPercentage * 100),
+                                                                          floor(currentValue/1000),
+                                                                          floor(maxValue/1000)))
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
         elif function == 2:
@@ -337,11 +337,11 @@ class PRVConnect:
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
         elif function == 3:
-            sys.stdout.write("Decrypting: {}{} {}% {}KB / {}KB\r".format(blockCharacters,
-                                                                         dashCharacters,
-                                                                         floor(progressPercentage * 100),
-                                                                         floor(currentValue/1000),
-                                                                         floor(maxValue/1000)))
+            sys.stdout.write("Decrypting:  {}{} {}% {}KB / {}KB\r".format(blockCharacters,
+                                                                          dashCharacters,
+                                                                          floor(progressPercentage * 100),
+                                                                          floor(currentValue/1000),
+                                                                          floor(maxValue/1000)))
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
         pass
