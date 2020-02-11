@@ -240,7 +240,7 @@ class FileTransfer(threading.Thread):
         return False, 0
 
     def completeTransmission(self):
-        self.log("Transmission is being completed")
+        self.log("Transmission is being completed", printOnScreen=False)
         self.databaseManager.databaseLock.acquire()
         listOfSegments = os.listdir(self.tmpFolder)
         listOfSegmentsNum = []
