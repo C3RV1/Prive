@@ -37,7 +37,8 @@ class GenerateKeys:
                       "key-size": Config.CLIENT_KEYSIZE,
                       "rsa-key": newPublicKeyExported,
                       "pow-0es": Config.POW_NUM_OF_0,
-                      "pow-iterations": Config.POW_ITERATIONS}
+                      "pow-iterations": Config.POW_ITERATIONS,
+                      "file-send-chunks": Config.FILE_SEND_CHUNKS}
 
         print "Creating Prive Config File (PCF) with conf: \n"
 

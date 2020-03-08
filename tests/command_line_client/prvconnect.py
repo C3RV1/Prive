@@ -48,12 +48,16 @@ class PRVConnect:
         if not "pow-iterations" in config.keys():
             config["pow-iterations"] = 2
 
+        if not "file-send-chunks" in config.keys():
+            config["file-send-chunks"] = 65536
+
         try:
             self.priveConnection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"],
                                                              keySize=config["key-size"],
                                                              serverPort=config["port"],
                                                              proofOfWork0es=config["pow-0es"],
-                                                             proofOfWorkIterations=config["pow-iterations"])
+                                                             proofOfWorkIterations=config["pow-iterations"],
+                                                             fileChunksToSend=config["file-send-chunks"])
             self.priveConnection.connect()
         except Exception as e:
             print "Error stablishing connection (prive connection)"
@@ -100,6 +104,7 @@ class PRVConnect:
 
         if not os.path.isfile(path):
             print "File not found"
+            self.priveConnection.close()
             sys.exit(0)
 
         result = self.priveConnection.addFile(os.path.basename(path), path, "Public",

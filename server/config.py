@@ -15,6 +15,9 @@ class Config:
 
     ALLOWED_NAME_CHARCTERS_RE = "^[A-Za-z0-9._]+$"
     CLIENT_TIMEOUT = 10
+
+    CLIENT_MAX_SEND = 65536/4
+
     KEYSIZE = 4096
     CLIENT_KEYSIZE = 2048
     VERSION = "v2.6.0"
@@ -29,4 +32,4 @@ class Config:
 
     POW_NUM_OF_0 = 4  # Num of hexadecimal zeroes in front of hash for it to be verified
     POW_ITERATIONS = 2  # Num of hash iterations
-    FILE_SEND_CHUNKS = 65536*4  # Size of chunks to be sent
+    FILE_SEND_CHUNKS = 65536  # Size of chunks to be sent

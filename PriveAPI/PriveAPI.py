@@ -20,7 +20,7 @@ alphabet = list(string.ascii_lowercase)
 alphabet.extend(str(i) for i in range(0, 10))
 alphabet.extend(string.ascii_uppercase)
 
-bytes3ChunksToSend = 65536*2
+bytes3ChunksToSend = 65536
 
 class AutoKeepAlive(threading.Thread):
 
@@ -45,8 +45,8 @@ class AutoKeepAlive(threading.Thread):
 class PriveAPIInstance:
 
     def __init__(self, serverIP, serverPublicKey, serverPort=4373, autoKeepAlive=True,
-                 keySize=4096, proofOfWork0es=5, proofOfWorkIterations=2):
-        # type: (str, str, int, bool, int, int, int) -> None
+                 keySize=4096, proofOfWork0es=5, proofOfWorkIterations=2, fileChunksToSend=65536):
+        # type: (str, str, int, bool, int, int, int, int) -> None
         self.sock = None
         self.sessionKeySet = False
         self.loggedInSK = None  # Private Key
@@ -56,6 +56,8 @@ class PriveAPIInstance:
         self.keySize = keySize
         self.proofOfWork0es = proofOfWork0es
         self.proofOfWorkIterations = proofOfWorkIterations
+
+        self.fileChunksToSend = fileChunksToSend
 
         self.serverIP = serverIP
         try:
@@ -212,7 +214,7 @@ class PriveAPIInstance:
         currentBytesSent = 0
 
         while True:
-            dataToSend = fileHandler.read(3*bytes3ChunksToSend)
+            dataToSend = fileHandler.read(3*self.fileChunksToSend)
             currentBytesSent += len(dataToSend)
             if dataToSend == "":
                 break
@@ -526,7 +528,7 @@ class PriveAPIInstance:
             self.close()
             raise Exception("File not found")
 
-        fileSize = int(math.ceil(os.stat(filePath).st_size/3)*4)
+        fileSize = int(math.ceil(os.stat(filePath).st_size/3.0)*4)
         fileSize2 = os.stat(filePath).st_size
 
         if visibility == "Private":
@@ -737,17 +739,26 @@ class PriveAPIInstance:
             response = response[1]
 
             msgDict = self.extractKeys(response)
-            if msgDict["errorCode"] != "successful" and msgDict["errorCode"] == "allSent":
+            if msgDict["errorCode"] == "allSent":
                 msgDict["errorCode"] = "successful"
+                ouFile.close()
                 break
-            dataToWrite = utils.base64_decode(msgDict["data"])
+            elif msgDict["errorCode"] == "successful":
+                dataToWrite = utils.base64_decode(msgDict["data"])
 
-            currentBytesReceived += len(dataToWrite)
-            if progressFunction is not None:
-                progressFunction(currentBytesReceived, fileDict["size"], 2)
+                currentBytesReceived += len(dataToWrite)
+                if progressFunction is not None:
+                    progressFunction(currentBytesReceived, fileDict["size"], 2)
 
-            ouFile.write(dataToWrite)
-        ouFile.close()
+                ouFile.write(dataToWrite)
+            elif msgDict["errorCode"] == "fileError":
+                ouFile.close()
+                os.remove(outputPath)
+                break
+            else:
+                ouFile.close()
+                os.remove(outputPath)
+                break
 
         self.autoKeepAlive.event.clear()
         return msgDict
@@ -795,17 +806,29 @@ class PriveAPIInstance:
             response = response[1]
 
             msgDict = self.extractKeys(response)
-            if msgDict["errorCode"] != "successful" and msgDict["errorCode"] == "allSent":
+            if msgDict["errorCode"] == "allSent":
                 msgDict["errorCode"] = "successful"
                 break
-            msgDict["data"] = utils.base64_decode(msgDict["data"])
+            elif msgDict["errorCode"] == "successful":
+                msgDict["data"] = utils.base64_decode(msgDict["data"])
 
-            currentBytesReceived += len(msgDict["data"])
+                currentBytesReceived += len(msgDict["data"])
 
-            if progressFunction is not None:
-                progressFunction(currentBytesReceived, fileDict["size"], 2)
+                if progressFunction is not None:
+                    progressFunction(currentBytesReceived, fileDict["size"], 2)
 
-            tmpPrivateFile.write(msgDict["data"])
+                tmpPrivateFile.write(msgDict["data"])
+            elif msgDict["errorCode"] == "fileError":
+                tmpPrivateFile.close()
+                os.remove(tmpPrivateFilePath)
+                self.autoKeepAlive.event.clear()
+                return msgDict
+            else:
+                tmpPrivateFile.close()
+                os.remove(tmpPrivateFilePath)
+                self.autoKeepAlive.event.clear()
+                return msgDict
+
 
         tmpPrivateFile.close()
 

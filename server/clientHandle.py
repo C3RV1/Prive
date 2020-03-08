@@ -76,6 +76,10 @@ class ClientHandle(threading.Thread):
                     data = data + newData
                     if re.search("\r\n", newData):
                         break
+
+                    # ANTI MEMORY LEAKING
+                    if len(data) >= Config.CLIENT_MAX_SEND:
+                        break
                 if self.runningEvent.is_set():
                     break
                 if self.handleMessage(data):

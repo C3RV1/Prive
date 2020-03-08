@@ -3,6 +3,7 @@ import base64
 from Crypto.Random import random, get_random_bytes
 from Crypto.Hash import SHA256
 import re
+import math
 
 
 def lineno():
@@ -67,3 +68,6 @@ def isInt(strToTest):
         return True
     except:
         return False
+
+def fromByteToB64Length(length):
+    return int(math.ceil(length/3.0)*4)

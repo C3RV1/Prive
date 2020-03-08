@@ -87,6 +87,14 @@ class FileTransfer(threading.Thread):
                     newData = self.clientSocket.recv(4096)
                     data = data + newData
                     if re.search("\r\n", newData):
+                        #self.log("Normal data read", debug=True)
+                        break
+
+                    # ANTI MEMORY LEAK
+                    if len(data) > utils.fromByteToB64Length(Config.FILE_SEND_CHUNKS * 4 + len("segment;num: ;data: ") + len("00000000")):
+                        #self.log("Maximum reached (Length {}, Max: {})".format(len(data),
+                        #                                                       utils.fromByteToB64Length(Config.FILE_SEND_CHUNKS * 4 + len("segment;num: ;data: ") + len("00000000"))),
+                        #         debug=True)
                         break
                 if self.runningEvent.is_set():
                     break
@@ -205,7 +213,10 @@ class FileTransfer(threading.Thread):
         plaintextPadded = plaintext + utils.getRandString(length-1) + chr(length)
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
-        ciphertext = utils.base64_encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
+        try:
+            ciphertext = utils.base64_encode(AES.new(key, AES.MODE_ECB).encrypt(plaintextPadded))
+        except:
+            return False, ""
         return True, ciphertext
 
     @staticmethod
@@ -213,8 +224,13 @@ class FileTransfer(threading.Thread):
         # type: (str, str) -> tuple
         if len(key) != 16 and len(key) != 32 and len(key) != 24:
             return False, ""
+        if not utils.isBase64(ciphertext):
+            return False, ""
         ciphertextNotB64 = utils.base64_decode(ciphertext)
-        plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
+        try:
+            plaintextPadded = AES.new(key, AES.MODE_ECB).decrypt(ciphertextNotB64)
+        except:
+            return False, ""
         plaintext = plaintextPadded[:-ord(plaintextPadded[-1])]
         return True, plaintext
 

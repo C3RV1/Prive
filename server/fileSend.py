@@ -12,7 +12,7 @@ import utils
 import os
 import shutil
 import clientHandle
-import config
+from config import Config
 
 
 class Timeout(threading.Thread):
@@ -70,7 +70,6 @@ class FileSend(threading.Thread):
         self.clientHandle.recvEvent.set()
 
         self.path = path
-        self.file = open(path, "rb")
         self.segment = 0
 
     def run(self):
@@ -82,6 +81,10 @@ class FileSend(threading.Thread):
                     newData = self.clientSocket.recv(4096)
                     data = data + newData
                     if re.search("\r\n", newData):
+                        break
+
+                    # ANTI MEMORY LEAK
+                    if len(data) > len("keepAlive\r\n"):
                         break
                 if self.runningEvent.is_set():
                     break
@@ -98,7 +101,6 @@ class FileSend(threading.Thread):
         return self.endTransmission()
 
     def endTransmission(self):
-        self.file.close()
         if self.runningEvent.is_set():
             return
         self.runningEvent.set()
@@ -140,9 +142,6 @@ class FileSend(threading.Thread):
         if re.search("^quit$", data):
             return True
 
-        # Check if session key message
-        sessionKeyRe = re.search("^sessionkey: (.*)$", data)
-
         # Get session key if exists
         sessionKey = self.databaseManager.getSessionKey(self.clientAddress[0], self.clientAddress[1])
 
@@ -171,6 +170,7 @@ class FileSend(threading.Thread):
             responseDict = {0: "msg: Sending Segment;segment: {};data: {};errorCode: successful".format(result[3],
                                                                                                         result[2]),
                             1: "msg: All Segments Sent;errorCode: allSent",
+                            2: "msg: File May Have Been Deleted While Reading;errorCode: fileError",
                             -1: "msg: Server Panic!;errorCode: serverPanic"}
 
             msg = responseDict.get(errorCode, "msg: Bad Error Code;errorCode: badErrorCode")
@@ -202,9 +202,15 @@ class FileSend(threading.Thread):
         return True, plaintext
 
     def handleSegment(self):
-        self.segment += 1
-        fileData = self.file.read(config.Config.FILE_SEND_CHUNKS)
-        if fileData == "":
-            return True, 1, fileData, self.segment
-        else:
-            return False, 0, fileData, self.segment
+        try:
+            f = open(self.path, "rb")
+            f.seek(self.segment*Config.FILE_SEND_CHUNKS*4)
+            fileData = f.read(Config.FILE_SEND_CHUNKS*4)
+            self.segment += 1
+            f.close()
+            if fileData == "":
+                return True, 1, fileData, self.segment
+            else:
+                return False, 0, fileData, self.segment
+        except:
+            return True, 2, "", self.segment
