@@ -104,8 +104,8 @@ class FileSend(threading.Thread):
         if self.runningEvent.is_set():
             return
         self.runningEvent.set()
-        self.log("Ending transmission")
-        self.log("Removing Timeout")
+        self.log("Ending transmission", printOnScreen=False)
+        self.log("Removing Timeout", printOnScreen=False)
         self.timeOutController.stop()
         try:
             self.timeOutController.join()

@@ -9,7 +9,7 @@ Although the server operator can't read the contents of your file, it can delete
 
 First of all, download the source code from a stable release, stable pre-release or stable nighty from the Releases section and extract it. You should not download it from the master branch as it might be a work-in-progress with bugs, unfinished things or not running at all.
 
-Next, you may run `python setup.py install` to install `PriveAPI`, `pycryptodome` and 'colorama'. All of them are modules used by the server and clients. We recommend installing all this modules on a virtualenv.
+Next, you may run `python setup.py install` to install `PriveAPI`, `pycryptodome` and `colorama`. All of them are modules used by the server and clients. We recommend installing all this modules on a virtualenv.
 
 ## To start the server
 
