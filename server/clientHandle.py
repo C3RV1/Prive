@@ -65,11 +65,11 @@ class ClientHandle(threading.Thread):
 
     def run(self):
         while not self.runningEvent.is_set():
-            if self.recvEvent.is_set():
-                time.sleep(0.1)
-                self.timeOutController.resetTime()
-                continue
             try:
+                if self.recvEvent.is_set():
+                    time.sleep(0.1)
+                    self.timeOutController.resetTime()
+                    continue
                 data = ""
                 while True:
                     newData = self.clientSocket.recv(4096)
