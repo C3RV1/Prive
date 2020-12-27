@@ -69,7 +69,7 @@ class ClientHandle(threading.Thread):
                     time.sleep(0.1)
                     self.timeout_controller.reset_time()
                     continue
-                    data = b""
+                data = b""
                 while True:
                     newData = self.client_socket.recv(4096)
                     data = data + newData
