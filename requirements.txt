@@ -1,2 +1,4 @@
 pycryptodome
-colorama
+colorama~=0.4.4
+
+setuptools~=51.1.0

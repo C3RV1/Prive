@@ -13,7 +13,7 @@ class Config:
     # Note: %A means that it will be replaced with the day of the week, meaning
     #       that it will overwrite the log files every week.
 
-    ALLOWED_NAME_CHARCTERS_RE = "^[A-Za-z0-9._]+$"
+    ALLOWED_NAME_CHARCTERS_RE = b"^[A-Za-z0-9._]+$"
     CLIENT_TIMEOUT = 10
 
     CLIENT_MAX_SEND = 65536/4

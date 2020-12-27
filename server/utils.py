@@ -9,30 +9,36 @@ import math
 def lineno():
     return inspect.currentframe().f_back.f_lineno
 
-def base64_encode(str):
-    return base64.b64encode(str).replace("/", "_")
 
-def base64_decode(str):
-    return base64.b64decode(str.replace("_", "/"))
+def base64_encode(string):
+    return base64.b64encode(string).replace(b"/", b"_")
 
-def isBase64(s):
+
+def base64_decode(string):
+    return base64.b64decode(string.replace(b"_", b"/"))
+
+
+def is_base64(s):
     try:
         return base64_encode(base64_decode(s)) == s
     except Exception:
         return False
 
-def getRandString(len):
-    # type: (int) -> str
-    returnString = ""
-    for x in range(0, len):
-        returnString += get_random_bytes(1)
-    if "\x00" in returnString:
-        return getRandString(len)
+
+def get_rand_string(length):
+    # type: (int) -> bytes
+    while True:
+        returnString = b""
+        for x in range(0, length):
+            returnString += get_random_bytes(1)
+        if b"\x00" not in returnString:
+            break
     return returnString
 
-def extractData(msg):
-        # type: (str) -> tuple
-        """
+
+def extract_data(msg):
+    # type: (bytes) -> tuple
+    """
 
         Extract Data from Prive Message (data;errorCode: eC)
 
@@ -40,34 +46,37 @@ def extractData(msg):
 
         :param msg: Message to extract data from
         :return: data, eC
-        """
+    """
 
-        msgRe = re.search("^(.+);errorCode: (.+)", msg)
-        if not msgRe:
-            return "", ""
+    msgRe = re.search(b"^(.+);errorCode: (.+)", msg)
+    if not msgRe:
+        return b"", b""
 
-        msgData = msgRe.group(1)
-        errorCode = msgRe.group(2)
+    msgData = msgRe.group(1)
+    errorCode = msgRe.group(2)
 
-        return msgData, errorCode
+    return msgData, errorCode
 
-def checkProofOfWork(msgToVerify, pow0es, powIterations):
-    # type: (str, int, int) -> bool
-    hash = SHA256.new(msgToVerify)
-    for i in range(0, powIterations - 1):
-        hash.update(hash.hexdigest())
 
-    if re.search("^" + "0" * pow0es, hash.hexdigest()):
+def check_proof_of_work(msg_to_verify, pow0es, pow_iterations):
+    # type: (bytes, int, int) -> bool
+    hash = SHA256.new(msg_to_verify)
+    for i in range(0, pow_iterations - 1):
+        hash.update(hash.hexdigest().encode("ascii"))
+
+    if re.search(b"^" + b"0" * pow0es, hash.hexdigest().encode("ascii")):
         return True
     else:
         return False
 
-def isInt(strToTest):
+
+def is_int(str_to_test):
     try:
-        num = int(strToTest)
+        num = int(str_to_test)
         return True
     except:
         return False
 
-def fromByteToB64Length(length):
+
+def from_byte_to_b64_length(length):
     return int(math.ceil(length/3.0)*4)
