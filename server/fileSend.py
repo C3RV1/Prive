@@ -15,8 +15,8 @@ class Timeout(threading.Thread):
         # type: (FileSend, socket.socket, tuple, int, databaseManager.DatabaseManager) -> None
         self.database_manager = database_manager
         self.client_address = client_address
-        self.log("Starting Timeout Thread on ClientFT " + str(client_address[0]) + " " + str(client_address[1]),
-                 print_on_screen=False)
+        # self.log("Starting Timeout Thread on ClientFT " + str(client_address[0]) + " " + str(client_address[1]),
+        #          print_on_screen=False)
         threading.Thread.__init__(self)
         self.socket = sock
         self.start_timeout = time.time()
@@ -39,14 +39,14 @@ class Timeout(threading.Thread):
     def run(self):
         while not self.timeout_event.is_set():
             if time.time() - self.start_timeout >= self.timeout:
-                self.log("ClientFS " + str(self.client_address[0]) + " " + str(self.client_address[1]) +
-                         " has reached the timeout",
-                         print_on_screen=False)
+                # self.log("ClientFS " + str(self.client_address[0]) + " " + str(self.client_address[1]) +
+                #          " has reached the timeout",
+                #          print_on_screen=False)
                 self.client_handler_master.client_handle.close_all()
                 self.client_handler_master.end_transmission()
                 break
             time.sleep(1)
-        self.log("Exiting Timeout", print_on_screen=False)
+        # self.log("Exiting Timeout", print_on_screen=False)
 
 
 class FileSend(threading.Thread):
@@ -71,7 +71,7 @@ class FileSend(threading.Thread):
         self.segment = 0
 
     def run(self):
-        self.log("Starting file sending", print_on_screen=False)
+        self.log("start", print_on_screen=False)
         while not self.running_event.is_set():
             try:
                 data = b""
@@ -102,8 +102,8 @@ class FileSend(threading.Thread):
         if self.running_event.is_set():
             return
         self.running_event.set()
-        self.log("Ending transmission")
-        self.log("Removing Timeout")
+        self.log("ending", print_on_screen=False)
+        # self.log("Removing Timeout", print_on_screen=False)
         self.time_out_controller.stop()
         try:
             self.time_out_controller.join()

@@ -15,8 +15,8 @@ class Timeout(threading.Thread):
         # type: (ClientHandle, socket.socket, tuple, databaseManager.DatabaseManager) -> None
         self.database_manager = database_manager
         self.client_address = client_address
-        self.log("Starting Timeout Thread on Client " + str(client_address[0]) + " " + str(client_address[1]),
-                 print_on_screen=False)
+        # self.log("Starting Timeout Thread on Client " + str(client_address[0]) + " " + str(client_address[1]),
+        #          print_on_screen=False)
         threading.Thread.__init__(self)
         self.socket = sock
         self.start_timeout = time.time()
@@ -38,13 +38,13 @@ class Timeout(threading.Thread):
     def run(self):
         while not self.timeout_event.is_set():
             if time.time() - self.start_timeout >= self.timeout:
-                self.log("Client " + str(self.client_address[0]) + " " + str(self.client_address[1]) +
-                         " has reached the timeout",
-                         print_on_screen=False)
+                # self.log("Client " + str(self.client_address[0]) + " " + str(self.client_address[1]) +
+                #          " has reached the timeout",
+                #          print_on_screen=False)
                 self.client_handler_master.close_all()
                 break
             time.sleep(1)
-        self.log("Exiting Timeout", print_on_screen=False)
+        # self.log("Exiting Timeout", print_on_screen=False)
 
 
 class ClientHandle(threading.Thread):
@@ -86,8 +86,8 @@ class ClientHandle(threading.Thread):
                 if not self.server_master.running.return_running():
                     self.send(b"quit\r\n")
                     break
-            except ZeroDivisionError as e:
-                self.log("Error:" + str(e), error=True)
+            except Exception as e:
+                self.log(str(e), error=True)
                 self.close_all()
                 return
         self.close_all()
@@ -101,15 +101,16 @@ class ClientHandle(threading.Thread):
         try:
             self.client_socket.close()
         except Exception:
-            self.log("Client Already Closed", print_on_screen=False)
-        self.log("Removing Timeout", print_on_screen=False)
+            # self.log("Client Already Closed", print_on_screen=False)
+            pass
+        # self.log("Removing Timeout", print_on_screen=False)
         self.timeout_controller.stop()
         try:
             self.timeout_controller.join()
         except:
             pass
         self.timeout_controller = None
-        self.log("Removing Self", print_on_screen=False)
+        # self.log("Removing Self", print_on_screen=False)
         self.server_master.delete_client_thread(self)
 
     def log(self, msg, print_on_screen=True, debug=False, error=False, save_to_file=True):
@@ -120,7 +121,7 @@ class ClientHandle(threading.Thread):
 
     def send(self, msg, encrypted=False, key=b""):
         # type: (bytes, bool, bytes) -> None
-        self.log("Sending [{}]".format(msg), print_on_screen=False)
+        # self.log("Sending [{}]".format(msg), print_on_screen=False)
         # self.log("Sending {}".format(msg.split(';')[0]), saveToFile=False)
         if encrypted:
             msg = self.encrypt_with_padding(key, msg)[1] + b"\r\n"
@@ -168,10 +169,10 @@ class ClientHandle(threading.Thread):
 
         decrypted_message = self.decrypt_with_padding(session_key, data)[1]  # type: bytes
 
-        show_txt = decrypted_message.split(b";")[0]
+        """show_txt = decrypted_message.split(b";")[0]
 
         if show_txt != b"keepAlive":
-            self.log("Received: [" + decrypted_message.decode("ascii") + "]", print_on_screen=False)
+            self.log("Received: [" + decrypted_message.decode("ascii") + "]", print_on_screen=False)"""
 
         if re.search(b"^quit$", decrypted_message):
             return True
@@ -210,6 +211,8 @@ class ClientHandle(threading.Thread):
                                                                                              l_proof_of_work,
                                                                                              self.client_address[0]))
 
+            self.log("new_user name: {} error_code: {}".format(l_name, l_database_query_error_code))
+
             response_dict = {0: b"msg: New User Registered!;errorCode: successful",
                              1: b"msg: User Already Exists;errorCode: usrAlreadyExists",
                              2: b"msg: Invalid Name Characters;errorCode: invalidName",
@@ -236,6 +239,8 @@ class ClientHandle(threading.Thread):
 
             l_database_query_error_code = l_database_query_result[0]
 
+            self.log("get_vt_aes_b64 name: {} error_code: {}".format(l_name, l_database_query_error_code))
+
             response_dict = {0: b"msg: Returning vtAesB64;vt: " + l_database_query_result[1] +
                                 b";errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
@@ -261,6 +266,8 @@ class ClientHandle(threading.Thread):
                                                                                          l_new_vt_sha, l_new_vt_enc))
 
             l_database_query_error_code = l_database_query_result[0]
+
+            self.log("check_vt name: {} error_code: {}".format(l_name, l_database_query_error_code))
 
             if l_database_query_error_code == 0:
                 l_sk_aes_b64 = self.database_manager.execute_function("getSK", (l_name,))
@@ -296,9 +303,12 @@ class ClientHandle(threading.Thread):
 
             l_database_query_error_code = l_database_query_result[0]
 
+            self.log("get_pk name: {} error_code: {}".format(l_name, l_database_query_error_code))
+
             response_dict = {0: b"msg: Returning pk;pk: " + l_database_query_result[1] + b";errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
-                             2: b"msg: User Without PK;errorCode: userWithoutPK"}
+                             2: b"msg: User Without PK;errorCode: userWithoutPK",
+                             -1: b"msg: Server Panic!;errorCode: serverPanic"}
 
             msg = response_dict.get(l_database_query_error_code, b"msg: Bad Error Code;errorCode: badErrorCode")
 
@@ -312,6 +322,8 @@ class ClientHandle(threading.Thread):
             l_signature_b64 = del_user.group(2)
 
             l_database_query_error_code = self.database_manager.execute_function("delUser", (l_name, l_signature_b64))
+
+            self.log("del_user name: {} error_code: {}".format(l_name, l_database_query_error_code))
 
             response_dict = {0: b"msg: User Deleted Successfully;errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
@@ -345,6 +357,8 @@ class ClientHandle(threading.Thread):
                                                                                                 l_new_vt_sha,
                                                                                                 l_new_vt_enc))
 
+            self.log("update_keys name: {} error_code: {}".format(l_name, l_database_query_error_code))
+
             response_dict = {0: b"msg: Keys Updated;errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
                              2: b"msg: Invalid Signature Characters;errorCode: invalidSignCh",
@@ -377,6 +391,9 @@ class ClientHandle(threading.Thread):
                                                                                                    l_file_b64_size,
                                                                                                    l_signature_b64,
                                                                                                    self))
+
+            self.log("add_public_file name: {} error_code: {} file_name: {}".format(l_name, l_database_query_error_code,
+                                                                                    l_file_name_b64))
 
             response_dict = {0: b"msg: Starting File Transmission;errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
@@ -412,6 +429,9 @@ class ClientHandle(threading.Thread):
                                                                                                    l_signature_b64,
                                                                                                    self))
 
+            self.log("add_hidden_file name: {} error_code: {} file_name: {}".format(l_name, l_database_query_error_code,
+                                                                                    l_file_name_b64))
+
             response_dict = {0: b"msg: File Added;errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
                              2: b"msg: Invalid Filename Characters;errorCode: invalidFilename",
@@ -446,6 +466,10 @@ class ClientHandle(threading.Thread):
                                                                                                     l_signature_b64,
                                                                                                     self))
 
+            self.log("add_private_file name: {} error_code: {} file_name: {}".format(l_name,
+                                                                                     l_database_query_error_code,
+                                                                                     l_file_name_b64))
+
             response_dict = {0: b"msg: File Added;errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
                              2: b"msg: Invalid Filename Characters;errorCode: invalidFilename",
@@ -472,6 +496,8 @@ class ClientHandle(threading.Thread):
             l_database_query_result = self.database_manager.execute_function("getPublicFileList", (l_name,))
             l_database_query_error_code = l_database_query_result[0]
 
+            self.log("get_public_file_list name: {} error_code: {}".format(l_name, l_database_query_error_code))
+
             response_dict = {0: b"msg: Returning PUFL;pufl: " + l_database_query_result[1] + b";errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
                              2: b"msg: Missing Public File List;errorCode: missingHFL",
@@ -491,6 +517,8 @@ class ClientHandle(threading.Thread):
             l_database_query_result = self.database_manager.execute_function("getHiddenFileList", (l_name,
                                                                                                    l_signature_b64))
             l_database_query_error_code = l_database_query_result[0]
+
+            self.log("get_hidden_file_list name: {} error_code: {}".format(l_name, l_database_query_error_code))
 
             response_dict = {0: b"msg: Returning HFL;hfl: " + l_database_query_result[1] + b";errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
@@ -515,6 +543,8 @@ class ClientHandle(threading.Thread):
             l_database_query_result = self.database_manager.execute_function("getPrivateFileList", (l_name,
                                                                                                     l_signature_b64))
             l_database_query_error_code = l_database_query_result[0]
+
+            self.log("get_private_file_list name: {} error_code: {}".format(l_name, l_database_query_error_code))
 
             response_dict = {0: b"msg: Returning PRFL;prfl: " + l_database_query_result[1] + b";errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
@@ -541,7 +571,10 @@ class ClientHandle(threading.Thread):
                                                                                          self))
             l_database_query_error_code = l_database_query_result[0]
 
-            response_dict = {0: b"msg: Returning fileB64;fileSize: %d;errorCode: successful" %
+            self.log("get_file name: {} error_code: {} file_id: {}".format(l_name, l_database_query_error_code,
+                                                                           l_id))
+
+            response_dict = {0: b"msg: Sending file;fileSize: %d;errorCode: successful" %
                                 l_database_query_result[1],
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
                              2: b"msg: Missing Public File List;errorCode: missingPUFL",
@@ -567,6 +600,9 @@ class ClientHandle(threading.Thread):
                                                                                                 l_signature_b64,
                                                                                                 self))
             l_database_query_error_code = l_database_query_result[0]
+
+            self.log("get_private_file name: {} error_code: {} file_id: {}".format(l_name, l_database_query_error_code,
+                                                                                   l_id))
 
             response_dict = {0: b"msg: Returning fileB64;fileSize: %d;errorCode: successful" %
                                 l_database_query_result[1],
@@ -596,6 +632,9 @@ class ClientHandle(threading.Thread):
             l_database_query_error_code = self.database_manager.execute_function("deleteFile", (l_name, l_id,
                                                                                                 l_signature_b64))
 
+            self.log("delete_file name: {} error_code: {} file_id: {}".format(l_name, l_database_query_error_code,
+                                                                              l_id))
+
             response_dict = {0: b"msg: File Deleted;errorCode: successful",
                              1: b"msg: User Doesn't Exist;errorCode: usrNotFound",
                              2: b"msg: Invalid Signature Characters;errorCode: invalidSignCh",
@@ -616,6 +655,7 @@ class ClientHandle(threading.Thread):
             return False
 
         msg = b"msg: Invalid Request;errorCode: invalidReq"
+        self.log("invalid_req")
         self.send(msg, encrypted=True, key=session_key)
         return False
 

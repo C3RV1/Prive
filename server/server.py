@@ -21,7 +21,7 @@ class ConsoleForExit(threading.Thread):
                 print(e)
                 continue
             if command in ["stop", "quit", "exit"]:
-                self.serverMaster.log("Stopping the server")
+                self.serverMaster.log("Stopping")
                 self.running = False
                 disconnect_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 disconnect_socket.connect((self.serverMaster.host, self.serverMaster.port))
@@ -93,7 +93,7 @@ class Server:
                 time.sleep(0.5)
                 continue
             client_socket, client_address = self.listen_socket.accept()
-            self.log("Client " + str(client_address[0]) + " " + str(client_address[1]) + " Connected",
+            self.log("connected " + str(client_address[0]) + " " + str(client_address[1]),
                      print_on_screen=False)
             self.client_threads.append(clientHandle.ClientHandle(client_socket, client_address, self.database, self))
             self.client_threads[-1].start()
@@ -102,6 +102,7 @@ class Server:
         for thread in self.client_threads:
             thread.join()
         self.listen_socket.close()
+        self.database.clean_up()
         self.log("Exiting")
 
     def delete_client_thread(self, client_thread):

@@ -18,8 +18,8 @@ class Timeout(threading.Thread):
         # type: (FileTransfer, socket.socket, tuple, databaseManager.DatabaseManager) -> None
         self.database_manager = database_manager
         self.client_address = client_address
-        self.log("Starting Timeout Thread on ClientFT " + str(client_address[0]) + " " + str(client_address[1]),
-                 print_on_screen=False)
+        # self.log("Starting Timeout Thread on ClientFT " + str(client_address[0]) + " " + str(client_address[1]),
+        #          print_on_screen=False)
         threading.Thread.__init__(self)
         self.socket = sock
         self.start_timeout = time.time()
@@ -42,14 +42,14 @@ class Timeout(threading.Thread):
     def run(self):
         while not self.timeout_event.is_set():
             if time.time() - self.start_timeout >= self.timeout:
-                self.log("ClientFT " + str(self.client_address[0]) + " " + str(self.client_address[1]) +
-                         " has reached the timeout",
-                         print_on_screen=False)
+                # self.log("ClientFT " + str(self.client_address[0]) + " " + str(self.client_address[1]) +
+                #          " has reached the timeout",
+                #          print_on_screen=False)
                 self.client_handler_master.client_handle.close_all()
                 self.client_handler_master.end_transmission()
                 break
             time.sleep(1)
-        self.log("Exiting Timeout", print_on_screen=False)
+        # self.log("Exiting Timeout", print_on_screen=False)
 
 
 class FileTransfer(threading.Thread):
@@ -80,7 +80,7 @@ class FileTransfer(threading.Thread):
         self.list_data = list_data
 
     def run(self):
-        self.log("Starting file transmission", print_on_screen=False)
+        self.log("start", print_on_screen=False)
         while not self.running_event.is_set():
             try:
                 data = b""
@@ -119,8 +119,8 @@ class FileTransfer(threading.Thread):
         if self.running_event.is_set():
             return
         self.running_event.set()
-        self.log("Ending transmission", print_on_screen=False)
-        self.log("Removing Timeout", print_on_screen=False)
+        self.log("ending", print_on_screen=False)
+        # self.log("Removing Timeout", print_on_screen=False)
         try:
             shutil.rmtree(self.tmp_folder[:-1])
         except:
@@ -165,7 +165,7 @@ class FileTransfer(threading.Thread):
 
         decrypted_message = self.decrypt_with_padding(session_key, data)[1]  # type: bytes
         showTxt = decrypted_message.split(b";")[0]
-        if showTxt != "keepAlive" and showTxt != "segment":
+        if showTxt != b"keepAlive" and showTxt != b"segment":
             self.log("Received: [" + decrypted_message.decode("ascii") + "]", print_on_screen=False)
 
         if re.search(b"^quit$", decrypted_message):
@@ -243,7 +243,7 @@ class FileTransfer(threading.Thread):
         return False, 0
 
     def complete_transmission(self):
-        self.log("Transmission is being completed", print_on_screen=False)
+        self.log("completed", print_on_screen=False)
 
         self.database_manager.database_lock.acquire()
 

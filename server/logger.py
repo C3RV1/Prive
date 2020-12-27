@@ -4,6 +4,7 @@ from colorama import init, Fore, Back, Style
 import loggerConfig
 from config import Config
 import os
+import shutil
 
 init(convert=True)
 
@@ -43,27 +44,27 @@ class Logger:
         if print_to_screen or debug or error:
             if debug:
                 print("")
-                print(Fore.GREEN + "DEBUG " + msg + Fore.WHITE)
+                print(Fore.GREEN + "dbg " + msg + Fore.WHITE)
                 print("")
             elif error:
                 print("")
-                print(Fore.RED + "ERROR " + msg + Fore.WHITE)
+                print(Fore.RED + "error " + msg + Fore.WHITE)
                 print("")
             else:
-                print(Fore.WHITE + "INFO " + msg)
+                print(Fore.WHITE + "info " + msg)
         if save_to_file:
             if debug:
-                self.file_handler.write("DEBUG " + msg + "\n")
+                self.file_handler.write("dbg " + msg + "\n")
             elif error:
-                self.file_handler.write("ERROR " + msg + "\n")
+                self.file_handler.write("error " + msg + "\n")
             else:
-                self.file_handler.write("INFO " + msg + "\n")
+                self.file_handler.write("info " + msg + "\n")
         self.file_handler.close()
         self.file_lock.release()
 
     def clear_log(self):
         self.file_lock.acquire()
-        os.rmdir(self.folder)
+        shutil.rmtree(self.folder)
         os.mkdir(self.folder)
         self.update_filename()
         self.file_lock.release()

@@ -5,350 +5,360 @@ import sys
 import json
 from math import *
 
-def nameToMoreLong(name, chars):
+
+def name_to_more_long(name, chars):
     if len(name) <= chars - 3:
         return name
     else:
         return name[0:chars - 3] + "..."
 
-def spacesFormatting(string, spaces):
-    string = nameToMoreLong(string, spaces)
+
+def spaces_formatting(string, spaces):
+    string = name_to_more_long(string, spaces)
     return string + " "*(spaces-len(string))
+
 
 class PRVConnect:
 
-    def __init__(self, user, passwd, pcfpath, register):
-        if not os.path.isfile(pcfpath):
-            print "Prive configuration file not found (--pcf)"
+    def __init__(self, user, passwd, pcf_path, register):
+        # type: (str, str, str, str) -> None
+        if not os.path.isfile(pcf_path):
+            print("Prive configuration file not found (--pcf)")
             sys.exit(0)
 
-        pcfFile = open(pcfpath, "r")
-        pcf = pcfFile.read()
-        pcfFile.close()
+        pcf_file = open(pcf_path, "r")
+        pcf = pcf_file.read()
+        pcf_file.close()
 
         try:
             config = json.loads(pcf)
         except:
-            print "Error exporting prive configuration file (--pcf)"
+            print("Error exporting prive configuration file (--pcf)")
             sys.exit(0)
 
-        if not "host" in config.keys() or not "rsa-key" in config.keys():
-            print "Missing keys in prive configuration file (--pcf)"
+        if "host" not in config.keys() or "rsa-key" not in config.keys():
+            print("Missing keys in prive configuration file (--pcf)")
             sys.exit(0)
 
-        if not "key-size" in config.keys():
+        if "key-size" not in config.keys():
             config["key-size"] = 2048
 
-        if not "port" in config.keys():
+        if "port" not in config.keys():
             config["port"] = 4373
 
-        if not "pow-0es" in config.keys():
+        if "pow-0es" not in config.keys():
             config["pow-0es"] = 5
 
-        if not "pow-iterations" in config.keys():
+        if "pow-iterations" not in config.keys():
             config["pow-iterations"] = 2
 
-        if not "file-send-chunks" in config.keys():
+        if "file-send-chunks" not in config.keys():
             config["file-send-chunks"] = 65536
 
         try:
-            self.priveConnection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"],
-                                                             keySize=config["key-size"],
-                                                             serverPort=config["port"],
-                                                             proofOfWork0es=config["pow-0es"],
-                                                             proofOfWorkIterations=config["pow-iterations"],
-                                                             fileChunksToSend=config["file-send-chunks"])
-            self.priveConnection.connect()
-        except Exception as e:
-            print "Error stablishing connection (prive connection)"
-            print "Error {}".format(e)
+            self.prive_connection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"].encode("ascii"),
+                                                              key_size=config["key-size"],
+                                                              server_port=config["port"],
+                                                              proof_of_work0es=config["pow-0es"],
+                                                              proof_of_work_iterations=config["pow-iterations"],
+                                                              file_chunks_to_send=config["file-send-chunks"])
+            self.prive_connection.connect()
+        except Exception as exc:
+            print("Error stablishing connection (prive connection)")
+            print("Error {}".format(exc))
             sys.exit(0)
 
-        self.user = user[0]
+        self.user = user[0].encode("ascii")
+        self.logged_in = False
 
         if passwd is not None:
-            self.loginInit(passwd[0], register)
+            self.login_init(passwd[0], register)
             return
         else:
-            self.notLoginInit()
+            self.not_login_init()
 
-    def notLoginInit(self):
-        self.loggedin = False
+    def not_login_init(self):
+        self.logged_in = False
 
-    def loginInit(self, passwd, register):
-        self.loggedin = True
+    def login_init(self, passwd, register):
+        self.logged_in = True
 
         if register is True:
-            registerResult = self.priveConnection.createUser(self.user, passwd)
-            if registerResult["errorCode"] != "successful":
-                print "Error registering"
-                print "Error {}".format(registerResult["msg"])
+            registerResult = self.prive_connection.create_user(self.user, passwd)
+            if registerResult[b"errorCode"] != b"successful":
+                print("Error registering")
+                print("Error {}".format(registerResult[b"msg"]))
             else:
-                print "User registered correctly"
-            self.priveConnection.close()
+                print("User registered correctly")
+            self.prive_connection.close()
             sys.exit(0)
 
-        loginResult = self.priveConnection.login(self.user, passwd)
-        if loginResult["errorCode"] != "successful":
-            print "Error logging in"
-            print "Error {}".format(loginResult["msg"])
-            self.priveConnection.close()
+        loginResult = self.prive_connection.login(self.user, passwd)
+        if loginResult[b"errorCode"] != b"successful":
+            print("Error logging in")
+            print("Error {}".format(loginResult[b"msg"]))
+            self.prive_connection.close()
             sys.exit(0)
 
-    def uploadPublic(self, path):
-        if not self.loggedin:
-            print "Error: You need to be logged in to upload files"
-            print "Specify a password to login and upload files"
-            self.priveConnection.close()
-            sys.exit(0)
-
-        if not os.path.isfile(path):
-            print "File not found"
-            self.priveConnection.close()
-            sys.exit(0)
-
-        result = self.priveConnection.addFile(os.path.basename(path), path, "Public",
-                                              progressFunction=self.progressFunction)
-        if result["errorCode"] != "successful":
-            print "Error uploading file"
-            print "Error: {} ({})".format(result["msg"], result["errorCode"])
-        else:
-            print "File Uploaded Successfully"
-        self.priveConnection.close()
-        sys.exit(0)
-
-    def uploadHidden(self, path):
-        if not self.loggedin:
-            print "Error: You need to be logged in to upload files"
-            print "Specify a password to login and upload files"
-            self.priveConnection.close()
+    def upload_public(self, path):
+        if not self.logged_in:
+            print("Error: You need to be logged in to upload files")
+            print("Specify a password to login and upload files")
+            self.prive_connection.close()
             sys.exit(0)
 
         if not os.path.isfile(path):
-            print "File not found"
+            print("File not found")
+            self.prive_connection.close()
             sys.exit(0)
 
-        result = self.priveConnection.addFile(os.path.basename(path), path, "Hidden",
-                                              progressFunction=self.progressFunction)
-        if result["errorCode"] != "successful":
-            print "Error uploading file"
-            print "Error: {} ({})".format(result["msg"], result["errorCode"])
+        result = self.prive_connection.add_file(os.path.basename(path).encode("ascii"), path, b"Public",
+                                                progress_function=self.progress_function)
+        if result[b"errorCode"] != b"successful":
+            print("Error uploading file")
+            print("Error: {} ({})".format(result[b"msg"], result[b"errorCode"]))
         else:
-            print "File Uploaded Successfully"
-        self.priveConnection.close()
+            print("File Uploaded Successfully")
+        self.prive_connection.close()
         sys.exit(0)
 
-    def uploadPrivate(self, path):
-        if not self.loggedin:
-            print "Error: You need to be logged in to upload files"
-            print "Specify a password to login and upload files"
-            self.priveConnection.close()
+    def upload_hidden(self, path):
+        if not self.logged_in:
+            print("Error: You need to be logged in to upload files")
+            print("Specify a password to login and upload files")
+            self.prive_connection.close()
             sys.exit(0)
 
         if not os.path.isfile(path):
-            print "File not found"
+            print("File not found")
             sys.exit(0)
 
-        result = self.priveConnection.addFile(os.path.basename(path), path, "Private",
-                                              progressFunction=self.progressFunction)
-        if result["errorCode"] != "successful":
-            print "Error uploading file"
-            print "Error: {} ({})".format(result["msg"], result["errorCode"])
+        result = self.prive_connection.add_file(os.path.basename(path).encode("ascii"), path, b"Hidden",
+                                                progress_function=self.progress_function)
+        if result[b"errorCode"] != b"successful":
+            print("Error uploading file")
+            print("Error: {} ({})".format(result[b"msg"], result[b"errorCode"]))
         else:
-            print "File Uploaded Successfully"
-        self.priveConnection.close()
+            print("File Uploaded Successfully")
+        self.prive_connection.close()
         sys.exit(0)
 
-    def download(self, id, outputPath):
-        fileList = self.priveConnection.getFiles(self.user)
-        if fileList["errorCode"] != "successful":
-            print "Error getting file list"
-            print "Error: {} ({})".format(fileList["msg"], fileList["errorCode"])
-            self.priveConnection.close()
+    def upload_private(self, path):
+        if not self.logged_in:
+            print("Error: You need to be logged in to upload files")
+            print("Specify a password to login and upload files")
+            self.prive_connection.close()
             sys.exit(0)
 
-        del fileList["errorCode"]
-
-        if outputPath is None:
-            print "Output path not specified"
-            self.priveConnection.close()
+        if not os.path.isfile(path):
+            print("File not found")
             sys.exit(0)
 
-        outputPath = outputPath[0]
-
-        if os.path.isfile(outputPath):
-            print "File {} already exists".format(outputPath)
-            self.priveConnection.close()
-            sys.exit(0)
-
-        if id not in fileList:
-            fileList[id] = {}
-            fileList[id]["id"] = id
-            fileList[id]["visibility"] = "Hidden"
-
-        getFileRequest = self.priveConnection.getFile(id, fileList[id]["visibility"], outputPath, user=self.user,
-                                                      progressFunction=self.progressFunction)
-        if getFileRequest["errorCode"] != "successful":
-            print "Error downloading file"
-            print "Error: {} ({})".format(getFileRequest["msg"], getFileRequest["errorCode"])
-            self.priveConnection.close()
-            sys.exit(0)
-
-        print "Saved successfully"
-        self.priveConnection.close()
+        result = self.prive_connection.add_file(os.path.basename(path).encode("ascii"), path, b"Private",
+                                                progress_function=self.progress_function)
+        if result[b"errorCode"] != b"successful":
+            print("Error uploading file")
+            print("Error: {} ({})".format(result[b"msg"], result[b"errorCode"]))
+        else:
+            print("File Uploaded Successfully")
+        self.prive_connection.close()
         sys.exit(0)
 
-    def delete(self, id, quiet):
-        if not self.loggedin:
-            print "Error: You need to be logged in to delete files"
-            print "Specify a password to login and delete files"
-            self.priveConnection.close()
+    def download(self, file_id, output_path):
+        file_list = self.prive_connection.get_files(self.user)
+        if file_list[b"errorCode"] != b"successful":
+            print("Error getting file list")
+            print("Error: {} ({})".format(file_list[b"msg"], file_list[b"errorCode"]))
+            self.prive_connection.close()
             sys.exit(0)
 
-        fileList = self.priveConnection.getFiles(self.user)
-        if fileList["errorCode"] != "successful":
-            print "Error getting file list"
-            print "Error: {} ({})".format(fileList["msg"], fileList["errorCode"])
-            self.priveConnection.close()
+        del file_list[b"errorCode"]
+
+        if output_path is None:
+            print("Output path not specified")
+            self.prive_connection.close()
             sys.exit(0)
 
-        del fileList["errorCode"]
+        output_path = output_path[0]
 
-        if not id in fileList.keys():
-            print "File not found"
-            self.priveConnection.close()
+        if os.path.isfile(output_path):
+            print("File {} already exists".format(output_path))
+            self.prive_connection.close()
+            sys.exit(0)
+
+        if file_id not in file_list:
+            file_list[file_id] = {}
+            file_list[file_id][b"id"] = file_id
+            file_list[file_id][b"visibility"] = b"Hidden"
+
+        getFileRequest = self.prive_connection.get_file(file_id, file_list[file_id][b"visibility"], output_path,
+                                                        user=self.user,
+                                                        progress_function=self.progress_function)
+        if getFileRequest[b"errorCode"] != b"successful":
+            print("Error downloading file")
+            print("Error: {} ({})".format(getFileRequest[b"msg"], getFileRequest[b"errorCode"]))
+            self.prive_connection.close()
+            sys.exit(0)
+
+        print("Saved successfully")
+        self.prive_connection.close()
+        sys.exit(0)
+
+    def delete(self, file_id, quiet):
+        if not self.logged_in:
+            print("Error: You need to be logged in to delete files")
+            print("Specify a password to login and delete files")
+            self.prive_connection.close()
+            sys.exit(0)
+
+        file_list = self.prive_connection.get_files(self.user)
+        if file_list[b"errorCode"] != b"successful":
+            print("Error getting file list")
+            print("Error: {} ({})".format(file_list[b"msg"], file_list[b"errorCode"]))
+            self.prive_connection.close()
+            sys.exit(0)
+
+        del file_list[b"errorCode"]
+
+        file_id = file_id.encode("ascii")
+
+        if file_id not in file_list.keys():
+            print("File not found")
+            self.prive_connection.close()
             sys.exit(0)
 
         if not quiet:
-            areYouSure = raw_input("Are you sure you want to delete this file? (s/N): ")
+            areYouSure = input("Are you sure you want to delete this file? (s/N): ")
             if areYouSure.lower() != "s":
-                print "Aborting operation"
-                self.priveConnection.close()
+                print("Aborting operation")
+                self.prive_connection.close()
                 sys.exit(0)
-            print "Deletion confirmed"
+            print("Deletion confirmed")
 
-        deleteFileRequest = self.priveConnection.deleteFile(fileList[id])
-        if deleteFileRequest["errorCode"] != "successful":
-            print "Error deleting file"
-            print "Error: {} ({})".format(deleteFileRequest["msg"], deleteFileRequest["errorCode"])
-            self.priveConnection.close()
+        deleteFileRequest = self.prive_connection.delete_file(file_id)
+        if deleteFileRequest[b"errorCode"] != b"successful":
+            print("Error deleting file")
+            print("Error: {} ({})".format(deleteFileRequest[b"msg"], deleteFileRequest[b"errorCode"]))
+            self.prive_connection.close()
             sys.exit(0)
 
-        print "File deleted successfully"
-        self.priveConnection.close()
+        print("File deleted successfully")
+        self.prive_connection.close()
         sys.exit(0)
 
     def list(self):
-        queryResult = self.priveConnection.getFiles(self.user)
-        if queryResult["errorCode"] != "successful":
-            print "Error getting file list"
-            print "Error: {} ({})".format(queryResult["msg"], queryResult["errorCode"])
-            self.priveConnection.close()
+        query_result = self.prive_connection.get_files(self.user)
+        if query_result[b"errorCode"] != b"successful":
+            print("Error getting file list")
+            print("Error: {} ({})".format(query_result[b"msg"], query_result[b"errorCode"]))
+            self.prive_connection.close()
             sys.exit(0)
 
-        del queryResult["errorCode"]
+        del query_result[b"errorCode"]
 
-        nameHeader = "Name" + " "*20
-        visibilityHeader = "Visibility "
-        sizeHeader = "Size (KB)" + " "*8
-        idHeader = "ID"
-        print nameHeader + sizeHeader + visibilityHeader + idHeader
+        name_header = "Name" + " "*20
+        visibility_header = "Visibility "
+        size_header = "Size (KB)" + " "*8
+        id_header = "ID"
+        print(name_header + size_header + visibility_header + id_header)
 
-        for key in queryResult:
-            name = queryResult[key]["name"]
-            visibility = queryResult[key]["visibility"]
-            size = queryResult[key]["size"]/1000.0
-            fileid = queryResult[key]["id"]
+        for key in query_result:
+            name = query_result[key][b"name"].decode("ascii")
+            visibility = query_result[key][b"visibility"].decode("ascii")
+            size = query_result[key][b"size"]/1000.0
+            fileid = query_result[key][b"id"].decode("ascii")
 
-            nameFormated = spacesFormatting(name, len(nameHeader))
-            sizeFormated = spacesFormatting(str(size), len(sizeHeader))
-            visibilityFormated = spacesFormatting(visibility, len(visibilityHeader))
+            name_formatted = spaces_formatting(name, len(name_header))
+            size_formatted = spaces_formatting(str(size), len(size_header))
+            visibility_formatted = spaces_formatting(visibility, len(visibility_header))
 
-            print nameFormated + sizeFormated + visibilityFormated + fileid
+            print(name_formatted + size_formatted + visibility_formatted + fileid)
 
-        self.priveConnection.close()
+        self.prive_connection.close()
         sys.exit(0)
 
-    def newPasswd(self, new_passwd):
-        if not self.loggedin:
-            print "Error: You need to be logged in to change the password of a user"
-            print "Specify a password to login and change the password of a user"
-            self.priveConnection.close()
+    def new_passwd(self, new_passwd):
+        if not self.logged_in:
+            print("Error: You need to be logged in to change the password of a user")
+            print("Specify a password to login and change the password of a user")
+            self.prive_connection.close()
             sys.exit(0)
 
-        updateKeysResult = self.priveConnection.updateKeys(new_passwd)
+        update_keys_result = self.prive_connection.update_keys(new_passwd)
 
-        if updateKeysResult["errorCode"] != "successful":
-            print "Error updating password"
-            print "Error: {} ({})".format(updateKeysResult["msg"], updateKeysResult["errorCode"])
-            self.priveConnection.close()
+        if update_keys_result[b"errorCode"] != b"successful":
+            print("Error updating password")
+            print("Error: {} ({})".format(update_keys_result[b"msg"], update_keys_result[b"errorCode"]))
+            self.prive_connection.close()
             sys.exit(0)
 
-        print "Password updated successfully"
-        self.priveConnection.close()
+        print("Password updated successfully")
+        self.prive_connection.close()
         sys.exit(0)
 
-    def deleteUser(self, quiet):
-        if not self.loggedin:
-            print "Error: You need to be logged in to delete a user"
-            print "Specify a password to login and delete a user"
-            self.priveConnection.close()
+    def delete_user(self, quiet):
+        if not self.logged_in:
+            print("Error: You need to be logged in to delete a user")
+            print("Specify a password to login and delete a user")
+            self.prive_connection.close()
             sys.exit(0)
 
         if not quiet:
-            areYouSure = raw_input("Are you sure you want to delete the user {}? (s/N)".format(self.user))
+            areYouSure = input("Are you sure you want to delete the user {}? (s/N)".format(self.user))
             if areYouSure.lower() != "s":
-                print "Aborting operation"
-                self.priveConnection.close()
+                print("Aborting operation")
+                self.prive_connection.close()
                 sys.exit(0)
 
-        deleteUserRequest = self.priveConnection.deleteUser()
-        if deleteUserRequest["errorCode"] != "successful":
-            print "Error deleting user"
-            print "Error: {} ({})".format(deleteUserRequest["msg"], deleteUserRequest["errorCode"])
-            self.priveConnection.close()
+        deleteUserRequest = self.prive_connection.delete_user()
+        if deleteUserRequest[b"errorCode"] != b"successful":
+            print("Error deleting user")
+            print("Error: {} ({})".format(deleteUserRequest[b"msg"], deleteUserRequest[b"errorCode"]))
+            self.prive_connection.close()
             sys.exit(0)
-        print "User deleted successfully"
-        self.priveConnection.close()
+        print("User deleted successfully")
+        self.prive_connection.close()
         sys.exit(0)
 
-    def progressFunction(self, currentValue, maxValue, function):
-        progressPercentage = float(currentValue) / float(maxValue)
+    @staticmethod
+    def progress_function(current_value, max_value, function):
+        progressPercentage = float(current_value) / float(max_value)
         characters = 50
         blockCharacters = chr(219)*int(round(progressPercentage*characters))
         dashCharacters = "-"*(50-int(round(progressPercentage*characters)))
         if function == 0:
             sys.stdout.write("Uploading:   {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
                                                                                       dashCharacters,
-                                                                                      progressPercentage*100,
-                                                                                      currentValue/1000,
-                                                                                      maxValue/1000))
+                                                                                      progressPercentage * 100,
+                                                                                      current_value / 1000,
+                                                                                      max_value / 1000))
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
         elif function == 1:
             sys.stdout.write("Encrypting:  {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
                                                                                       dashCharacters,
-                                                                                      progressPercentage*100,
-                                                                                      currentValue/1000,
-                                                                                      maxValue/1000))
+                                                                                      progressPercentage * 100,
+                                                                                      current_value / 1000,
+                                                                                      max_value / 1000))
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
         elif function == 2:
             sys.stdout.write("Downloading: {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
                                                                                       dashCharacters,
-                                                                                      progressPercentage*100,
-                                                                                      currentValue/1000,
-                                                                                      maxValue/1000))
+                                                                                      progressPercentage * 100,
+                                                                                      current_value / 1000,
+                                                                                      max_value / 1000))
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
         elif function == 3:
             sys.stdout.write("Decrypting:  {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
                                                                                       dashCharacters,
-                                                                                      progressPercentage*100,
-                                                                                      currentValue/1000,
-                                                                                      maxValue/1000))
+                                                                                      progressPercentage * 100,
+                                                                                      current_value / 1000,
+                                                                                      max_value / 1000))
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
+
 
 parser = argparse.ArgumentParser(description="Communicate with a Prive Server")
 parser.add_argument("--pcf", nargs=1, default=["priveConfigFile.pcf"], metavar="<pcf path>",
@@ -378,7 +388,8 @@ parser.add_argument("-p", nargs=1,
                     help="Password to login with",
                     metavar="<passwd>")
 parser.add_argument("-o", nargs=1,
-                    help="Output file in which to save the downloaded file. If not specified, it will be printed on screen.",
+                    help="Output file in which to save the downloaded file." +
+                         "If not specified, it will be printed on screen.",
                     metavar="<output file>")
 parser.add_argument("-q",
                     help="Quiet mode. Doesn't ask for confirmation when doing a dangerous action. DANGEROUS",
@@ -387,27 +398,27 @@ parser.add_argument("-q",
 args, leftovers = parser.parse_known_args()
 
 if args.u is None:
-    print "Missing user argument"
-    print "Use prvconnect.py -h to see a list of all possible arguments"
+    print("Missing user argument")
+    print("Use prvconnect.py -h to see a list of all possible arguments")
     sys.exit(0)
-prvConnect = PRVConnect(args.u, args.p, args.pcf[0], args.register)
+prv_connect = PRVConnect(args.u, args.p, args.pcf[0], args.register)
 if args.uploadPublic is not None:
-    prvConnect.uploadPublic(args.uploadPublic[0])
+    prv_connect.upload_public(args.uploadPublic[0])
 elif args.uploadHidden is not None:
-    prvConnect.uploadHidden(args.uploadHidden[0])
+    prv_connect.upload_hidden(args.uploadHidden[0])
 elif args.uploadPrivate is not None:
-    prvConnect.uploadPrivate(args.uploadPrivate[0])
+    prv_connect.upload_private(args.uploadPrivate[0])
 elif args.download is not None:
-    prvConnect.download(args.download[0], args.o)
+    prv_connect.download(args.download[0], args.o)
 elif args.delete is not None:
-    prvConnect.delete(args.delete[0], args.q)
+    prv_connect.delete(args.delete[0], args.q)
 elif args.list is not False:
-    prvConnect.list()
+    prv_connect.list()
 elif args.newpasswd is not None:
-    prvConnect.newPasswd(args.newpasswd[0])
+    prv_connect.new_passwd(args.newpasswd[0])
 elif args.deleteUser is not False:
-    prvConnect.deleteUser(args.q)
+    prv_connect.delete_user(args.q)
 else:
     parser.print_help()
-    prvConnect.priveConnection.close()
+    prv_connect.prive_connection.close()
     sys.exit(0)

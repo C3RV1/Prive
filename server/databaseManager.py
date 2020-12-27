@@ -114,6 +114,14 @@ class DatabaseManager(threading.Thread):
         # type: (str, bool, bool, bool) -> None
         self.logger.log("DatabaseManager", msg, print_to_screen=print_on_screen, debug=debug, error=error)
 
+    def clean_up(self):
+        if os.path.isdir(self.database_directory + "/FileSegments"):
+            shutil.rmtree(self.database_directory + "/FileSegments")
+        if os.path.isdir(self.database_directory + "/SessionKeys"):
+            shutil.rmtree(self.database_directory + "/SessionKeys")
+        if os.path.isdir(self.database_directory + "/Challenges"):
+            shutil.rmtree(self.database_directory + "/Challenges")
+
     # Queue Functions
 
     def run(self):

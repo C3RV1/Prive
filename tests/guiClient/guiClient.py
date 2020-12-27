@@ -37,9 +37,9 @@ class App:
             config["pow-iterations"] = 2
 
         try:
-            self.priveConnection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"], keySize=config["key-size"],
-                                                             serverPort=config["port"], proofOfWork0es=config["pow-0es"],
-                                                             proofOfWorkIterations=config["pow-iterations"])
+            self.priveConnection = PriveAPI.PriveAPIInstance(config["host"], config["rsa-key"], key_size=config["key-size"],
+                                                             server_port=config["port"], proof_of_work0es=config["pow-0es"],
+                                                             proof_of_work_iterations=config["pow-iterations"])
         except:
             sys.exit(3)
 
@@ -228,7 +228,7 @@ class App:
         visibilityLabel2 = Label(scrollableFileList.interior, text="Visibility", font=("Arial", 11))
         visibilityLabel2.grid(row=0, column=2, sticky=W)
 
-        queryResult = self.priveConnection.getFiles()
+        queryResult = self.priveConnection.get_files()
         if queryResult["errorCode"] != "successful":
             downloadFileToplevel.destroy()
             return
@@ -283,7 +283,7 @@ class App:
         visibilityLabel2 = Label(scrollableFileList.interior, text="Visibility", font=("Arial", 11))
         visibilityLabel2.grid(row=0, column=2, sticky=W)
 
-        queryResult = self.priveConnection.getFiles()
+        queryResult = self.priveConnection.get_files()
         if queryResult["errorCode"] != "successful":
             deleteFileTopelevel.destroy()
             return
@@ -447,7 +447,7 @@ class App:
         deleteUserToplevel.geometry(str(deleteUserToplevel.winfo_width())+"x"+str(deleteUserToplevel.winfo_height()+10))
 
     def doDeleteUser(self, settingsToplevel, deleteUserToplevel, currentPasswordEntry):
-        if currentPasswordEntry.get() != self.priveConnection.getLoggedInPasswd():
+        if currentPasswordEntry.get() != self.priveConnection.get_logged_in_passwd():
             wrongPasswdToplevel = Toplevel(deleteUserToplevel)
             wrongPasswdToplevel.grab_set()
             wrongPasswdLabel = Label(wrongPasswdToplevel, text="Wrong current password", font=("Arial", 12), fg="red")
@@ -456,7 +456,7 @@ class App:
             wrongPasswdToplevel.geometry(str(wrongPasswdToplevel.winfo_width())+"x"+str(wrongPasswdToplevel.winfo_height()+10))
             return
 
-        result = self.priveConnection.deleteUser()
+        result = self.priveConnection.delete_user()
         if result["errorCode"] == "successful":
             self.setActiveFrame("loginFrame")
             deleteUserToplevel.destroy()
@@ -475,7 +475,7 @@ class App:
                          currentPasswordEntry, newPasswordEntry, confirmNewPasswordEntry, errorLabel):
         # type: (Toplevel, Entry, Entry, Entry, Label) -> None
 
-        if currentPasswordEntry.get() != self.priveConnection.getLoggedInPasswd():
+        if currentPasswordEntry.get() != self.priveConnection.get_logged_in_passwd():
             errorLabel.config(text="Wrong password", fg="red")
             return
         if newPasswordEntry.get() != confirmNewPasswordEntry.get():
@@ -484,7 +484,7 @@ class App:
 
         errorLabel.config(text="Please wait...")
         changePasswordToplevel.update()
-        queryResult = self.priveConnection.updateKeys(newPasswordEntry.get())
+        queryResult = self.priveConnection.update_keys(newPasswordEntry.get())
 
         if queryResult["errorCode"] == "successful":
             errorLabel.config(text="Password changed successfully")
@@ -520,7 +520,7 @@ class App:
 
     def yesImSure(self, id, errorLabel, queryResults, areYouSureToplevel, nameLabels, sizeLabels, visibilityLabels,
                   deleteButtons):
-        queryResult = self.priveConnection.deleteFile(queryResults[id])
+        queryResult = self.priveConnection.delete_file(queryResults[id])
         if queryResult["errorCode"] == "successful":
             nameLabels[id].destroy()
             sizeLabels[id].destroy()
@@ -557,7 +557,7 @@ class App:
         if saveLocation == "":
             errorLabel.config(text="Download cancelled", fg="black")
             return
-        queryResult = self.priveConnection.getFile(queryResults[id], saveLocation)
+        queryResult = self.priveConnection.get_file(queryResults[id], saveLocation)
         if queryResult["errorCode"] != "successful":
             errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
             return
@@ -574,8 +574,8 @@ class App:
         errorLabel.config(text="Please wait...", fg="black")
         uploadFileTopLevel.update_idletasks()
         try:
-            queryResult = self.priveConnection.addFile(os.path.basename(pathFile), pathEntry.get(),
-                                                       visibility=visibility.get())
+            queryResult = self.priveConnection.add_file(os.path.basename(pathFile), pathEntry.get(),
+                                                        visibility=visibility.get())
         except Exception as e:
             queryResult = {"errorCode": e.message}
         if queryResult["errorCode"] == "successful":
@@ -594,9 +594,9 @@ class App:
             queryResult = self.priveConnection.login(usernameEntry.get(), passwordEntry.get())
         except Exception as e:
             queryResult = {"errorCode": e.message}
-        if queryResult["errorCode"] == "successful" and self.priveConnection.loggedIn:
+        if queryResult["errorCode"] == "successful" and self.priveConnection.logged_in:
             loginTopLevel.destroy()
-            self.loggedInFrameWidgets["loggedInText"].config(text="Logged in as " + self.priveConnection.loggedInUser)
+            self.loggedInFrameWidgets["loggedInText"].config(text="Logged in as " + self.priveConnection.logged_in_user)
             self.setActiveFrame("loggedInFrame")
         else:
             errorLabel.config(text="Error: {}".format(queryResult["msg"]), fg="red")
@@ -610,7 +610,7 @@ class App:
         errorLabel.config(text="Please wait...", fg="black")
         registerToplevel.update()
         try:
-            queryResult = self.priveConnection.createUser(usernameEntry.get(), passwordEntry.get())
+            queryResult = self.priveConnection.create_user(usernameEntry.get(), passwordEntry.get())
         except Exception as e:
             queryResult = {"errorCode": e.message}
         if queryResult["errorCode"] == "successful":
