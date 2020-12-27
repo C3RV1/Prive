@@ -24,12 +24,13 @@ bytes3ChunksToSend = 65536
 
 class AutoKeepAlive(threading.Thread):
 
-    def __init__(self, serverSocket, keepAliveMsg):
-        # type: (PriveAPIInstance, str) -> None
+    def __init__(self, serverSocket, keepAliveMsg, send_lock):
+        # type: (PriveAPIInstance, str, threading.Lock) -> None
         threading.Thread.__init__(self)
         self.serverSock = serverSocket
         self.keepAliveMsg = keepAliveMsg
         self.event = threading.Event()
+        self.send_lock = send_lock
 
     def run(self):
         while True:
@@ -37,7 +38,9 @@ class AutoKeepAlive(threading.Thread):
                 time.sleep(0.2)
                 continue
             try:
+                self.send_lock.acquire()
                 self.serverSock.send(self.keepAliveMsg)
+                self.send_lock.release()
                 time.sleep(0.2)
             except:
                 break
@@ -56,6 +59,8 @@ class PriveAPIInstance:
         self.keySize = keySize
         self.proofOfWork0es = proofOfWork0es
         self.proofOfWorkIterations = proofOfWorkIterations
+
+        self.send_lock = threading.Lock()
 
         self.fileChunksToSend = fileChunksToSend
 
@@ -932,7 +937,9 @@ class PriveAPIInstance:
             msgToSend = msg
             msgToSend = self.encryptWithPadding(self.sessionKey, msgToSend)[1] + "\r\n"
             try:
+                self.send_lock.acquire()
                 self.sock.send(msgToSend)
+                self.send_lock.release()
             except:
                 return 1
         return 0
