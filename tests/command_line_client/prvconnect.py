@@ -169,11 +169,6 @@ class PRVConnect:
 
         del fileList["errorCode"]
 
-        if not id in fileList.keys():
-            print "File not found"
-            self.priveConnection.close()
-            sys.exit(0)
-
         if outputPath is None:
             print "Output path not specified"
             self.priveConnection.close()
@@ -186,7 +181,12 @@ class PRVConnect:
             self.priveConnection.close()
             sys.exit(0)
 
-        getFileRequest = self.priveConnection.getFile(fileList[id], outputPath, user=self.user,
+        if id not in fileList:
+            fileList[id] = {}
+            fileList[id]["id"] = id
+            fileList[id]["visibility"] = "Hidden"
+
+        getFileRequest = self.priveConnection.getFile(id, fileList[id]["visibility"], outputPath, user=self.user,
                                                       progressFunction=self.progressFunction)
         if getFileRequest["errorCode"] != "successful":
             print "Error downloading file"
@@ -290,8 +290,8 @@ class PRVConnect:
 
     def deleteUser(self, quiet):
         if not self.loggedin:
-            print "Error: You need to be logged in to change the delete a user"
-            print "Specify a password to login and change the delete a user"
+            print "Error: You need to be logged in to delete a user"
+            print "Specify a password to login and delete a user"
             self.priveConnection.close()
             sys.exit(0)
 
@@ -349,7 +349,6 @@ class PRVConnect:
                                                                           floor(maxValue/1000)))
             if progressPercentage >= 1:
                 sys.stdout.write("\n")
-        pass
 
 parser = argparse.ArgumentParser(description="Communicate with a Prive Server")
 parser.add_argument("--pcf", nargs=1, default=["priveConfigFile.pcf"], metavar="<pcf path>",

@@ -690,7 +690,7 @@ class PriveAPIInstance:
         filesDict["errorCode"] = "successful"
         return filesDict
 
-    def getFile(self, fileDict, outputPath, user="", progressFunction=None):
+    def getFile(self, fileId, visibility, outputPath, user="", progressFunction=None):
 
         if not self.connected:
             raise Exception("Not connected")
@@ -701,10 +701,10 @@ class PriveAPIInstance:
                 raise Exception("Not logged in")
             user = self.loggedInUser
 
-        if fileDict["visibility"] == "Private":
-            return self.__getPrivateFile(user, fileDict, outputPath, progressFunction=progressFunction)
+        if visibility == "Private":
+            return self.__getPrivateFile(user, fileId, outputPath, progressFunction=progressFunction)
 
-        getFileMessage = "getFile;name: " + user + ";id: " + fileDict["id"]
+        getFileMessage = "getFile;name: " + user + ";id: " + fileId
 
         if not self.__sendMsg(getFileMessage) == 0:
             self.close()
@@ -719,6 +719,8 @@ class PriveAPIInstance:
         msgDict = self.extractKeys(response)
         if msgDict["errorCode"] != "successful":
             return msgDict
+
+        size = int(msgDict["fileSize"])
 
         self.autoKeepAlive.event.set()
 
@@ -748,7 +750,7 @@ class PriveAPIInstance:
 
                 currentBytesReceived += len(dataToWrite)
                 if progressFunction is not None:
-                    progressFunction(currentBytesReceived, fileDict["size"], 2)
+                    progressFunction(currentBytesReceived, size, 2)
 
                 ouFile.write(dataToWrite)
             elif msgDict["errorCode"] == "fileError":
@@ -763,12 +765,12 @@ class PriveAPIInstance:
         self.autoKeepAlive.event.clear()
         return msgDict
 
-    def __getPrivateFile(self, user, fileDict, outputPath, progressFunction=None):
+    def __getPrivateFile(self, user, fileId, outputPath, progressFunction=None):
 
         if not self.connected:
             raise Exception("Not connected")
 
-        getPrivateFileMessage = "getPrivateFile;name: " + user + ";id: " + fileDict["id"]
+        getPrivateFileMessage = "getPrivateFile;name: " + user + ";id: " + fileId
         textToSign = SHA256.new(getPrivateFileMessage)
         signature = utils.base64_encode(PKCS1_v1_5_Sign.new(self.loggedInSK).sign(textToSign))
         getPrivateFileMessage = getPrivateFileMessage + ";signatureB64: " + signature
@@ -786,6 +788,7 @@ class PriveAPIInstance:
         msgDict = self.extractKeys(response)
         if msgDict["errorCode"] != "successful":
             return msgDict
+        size = int(msgDict["fileSize"])
 
         self.autoKeepAlive.event.set()
 
@@ -815,7 +818,7 @@ class PriveAPIInstance:
                 currentBytesReceived += len(msgDict["data"])
 
                 if progressFunction is not None:
-                    progressFunction(currentBytesReceived, fileDict["size"], 2)
+                    progressFunction(currentBytesReceived, size, 2)
 
                 tmpPrivateFile.write(msgDict["data"])
             elif msgDict["errorCode"] == "fileError":
@@ -848,7 +851,7 @@ class PriveAPIInstance:
                                                      usePadding=False)[1])
             currentBytesDecrypted += len(data)
             if progressFunction is not None:
-                progressFunction(currentBytesDecrypted, fileDict["size"], 3)
+                progressFunction(currentBytesDecrypted, size, 3)
 
 
         ouFile.close()
