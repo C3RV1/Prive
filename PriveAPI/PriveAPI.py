@@ -104,7 +104,7 @@ class PriveAPIInstance:
         self.keepAliveMsg = keepAliveEncrypted[1] + "\r\n"
 
         if self.autoKeepAliveEnabled:
-            self.autoKeepAlive = AutoKeepAlive(self.sock, self.keepAliveMsg)
+            self.autoKeepAlive = AutoKeepAlive(self.sock, self.keepAliveMsg, self.send_lock)
             self.autoKeepAlive.start()
 
     def close(self):
