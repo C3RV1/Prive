@@ -79,6 +79,10 @@ class FileTransfer(threading.Thread):
         self.list_path = list_path
         self.list_data = list_data
 
+        self.current_segment = 0
+        self.tmp_file_path = "{}tmp.tfd".format(self.tmp_folder)
+        self.tmp_file_handler = open(self.tmp_file_path, "wb")
+
     def run(self):
         self.log("start", print_on_screen=False)
         while not self.running_event.is_set():
@@ -109,7 +113,7 @@ class FileTransfer(threading.Thread):
                     self.send(b"quit")
                     self.client_handle.close_all()
                     break
-            except ZeroDivisionError as e:
+            except Exception as e:
                 self.log("Error:" + str(e), error=True)
                 self.client_handle.close_all()
                 self.end_transmission()
@@ -121,6 +125,8 @@ class FileTransfer(threading.Thread):
         self.running_event.set()
         self.log("ending", print_on_screen=False)
         # self.log("Removing Timeout", print_on_screen=False)
+        if not self.tmp_file_handler.closed:
+            self.tmp_file_handler.close()
         try:
             shutil.rmtree(self.tmp_folder[:-1])
         except:
@@ -222,8 +228,13 @@ class FileTransfer(threading.Thread):
 
     def handle_segment(self, segment_num, data):
         # type: (bytes, bytes) -> tuple
-        if os.path.isfile("{}tmp-{}.tfd".format(self.tmp_folder, segment_num.decode("ascii"))):
-            return False, 1
+        # if os.path.isfile("{}tmp-{}.tfd".format(self.tmp_folder, segment_num.decode("ascii"))):
+        #     return False, 1
+
+        if segment_num != str(self.current_segment).encode("ascii"):
+            return True, 1
+
+        self.current_segment += 1
 
         if not utils.is_base64(data):
             return True, 2
@@ -233,9 +244,10 @@ class FileTransfer(threading.Thread):
 
         self.currently_received += len(data)
 
-        tmpFile = open("{}tmp-{}.tfd".format(self.tmp_folder, segment_num.decode("ascii")), "wb")
-        tmpFile.write(data)
-        tmpFile.close()
+        # tmpFile = open("{}tmp-{}.tfd".format(self.tmp_folder, segment_num.decode("ascii")), "wb")
+        # tmpFile.write(data)
+        # tmpFile.close()
+        self.tmp_file_handler.write(data)
 
         if self.currently_received >= self.receive_size:
             return True, 4
@@ -245,21 +257,14 @@ class FileTransfer(threading.Thread):
     def complete_transmission(self):
         self.log("completed", print_on_screen=False)
 
+        self.tmp_file_handler.close()
+
         self.database_manager.database_lock.acquire()
 
-        list_of_segments = os.listdir(self.tmp_folder)
-        list_of_segments_num = []
-        for segment in list_of_segments:
-            group = re.search("^tmp-([0-9]+).tfd$", segment)
-            if group:
-                list_of_segments_num.append(int(group.group(1)))
-        list_of_segments_num.sort()
-
         outputFile = open(self.end_file_path, "wb")
-        for segmentNum in list_of_segments_num:
-            openSegmentFile = open("{}tmp-{}.tfd".format(self.tmp_folder, segmentNum), "rb")
-            outputFile.write(openSegmentFile.read())
-            openSegmentFile.close()
+        openSegmentFile = open(self.tmp_file_path, "rb")
+        outputFile.write(openSegmentFile.read())
+        openSegmentFile.close()
         outputFile.close()
 
         self.transmission_completed = True

@@ -948,7 +948,7 @@ class DatabaseManager(threading.Thread):
         ret_value = -1
         try:
             ret_value = self.__add_private_file(user, file_name_b64, file_b64_size, signature_b64, client_handler)
-        except ZeroDivisionError:
+        except Exception:
             self.log("Error addPrivateFile", error=True)
         return ret_value
 

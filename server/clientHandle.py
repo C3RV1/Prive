@@ -113,7 +113,7 @@ class ClientHandle(threading.Thread):
         # self.log("Removing Self", print_on_screen=False)
         self.server_master.delete_client_thread(self)
 
-    def log(self, msg, print_on_screen=True, debug=False, error=False, save_to_file=True):
+    def log(self, msg, print_on_screen=False, debug=False, error=False, save_to_file=True):
         # type: (str, bool, bool, bool, bool) -> None
         self.database_manager.logger.log("Client:" + self.client_address[0] + ":" + str(self.client_address[1]),
                                          msg, print_to_screen=print_on_screen, debug=debug, error=error,

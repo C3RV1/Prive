@@ -215,8 +215,28 @@ class PriveAPIInstance:
         if not self.connected:
             raise Exception("Not connected")
 
+        f = open(file_path, "rb")
+        tmp_path = "{}.tmp".format(utils.base64_encode(get_random_bytes(8)).decode("ascii"))
+        tmp_file = open(tmp_path, "wb")
+
+        current_bytes_done = 0
+
+        while True:
+            data = f.read(3 * self.file_chunks_to_send)
+            if data == b"":
+                break
+            current_bytes_done += len(data)
+            enc = utils.base64_encode(data)
+            tmp_file.write(enc)
+
+            if progress_function is not None:
+                progress_function(current_bytes_done, file_size, 1)
+
+        tmp_file.close()
+        f.close()
+
         self.auto_keep_alive.event.set()
-        file_handler = open(file_path, "rb")
+        file_handler = open(tmp_path, "rb")
         segment = 0
 
         msg_dict = {}
@@ -224,11 +244,10 @@ class PriveAPIInstance:
         current_bytes_sent = 0
 
         while True:
-            data_to_send = file_handler.read(3 * self.file_chunks_to_send)
-            current_bytes_sent += len(data_to_send)
+            data_to_send = file_handler.read(self.file_chunks_to_send * 4)
+            current_bytes_sent += (len(data_to_send) / 4) * 3
             if data_to_send == b"":
                 break
-            data_to_send = utils.base64_encode(data_to_send)
             segment_message = b"segment;num: %d;data: %s" % (segment, data_to_send)
             if not self.__send_msg(segment_message) == 0:
                 Exception("Error Communicating with Server (Error 0)")
@@ -250,6 +269,10 @@ class PriveAPIInstance:
 
             if progress_function is not None:
                 progress_function(current_bytes_sent, file_size, 0)
+
+        file_handler.close()
+
+        os.remove(tmp_path)
 
         self.auto_keep_alive.event.clear()
         return msg_dict
@@ -747,7 +770,7 @@ class PriveAPIInstance:
         if isinstance(user, str):
             user = user.encode("ascii")
 
-        if user == "":
+        if user == b"":
             if not self.logged_in:
                 self.close()
                 raise Exception("Not logged in")
@@ -898,7 +921,7 @@ class PriveAPIInstance:
 
         while True:
             data = tmp_private_file.read(65536 * 2)
-            if data == "":
+            if data == b"":
                 break
             if len(data) != 65536 * 2:
                 ou_file.write(self.decrypt_with_padding(self.logged_in_password, utils.base64_encode(data))[1])

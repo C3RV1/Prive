@@ -3,6 +3,7 @@ import argparse
 import os
 import sys
 import json
+import time
 from math import *
 
 
@@ -29,6 +30,8 @@ class PRVConnect:
         pcf_file = open(pcf_path, "r")
         pcf = pcf_file.read()
         pcf_file.close()
+
+        self.progress_start_time = None
 
         try:
             config = json.loads(pcf)
@@ -165,6 +168,9 @@ class PRVConnect:
         sys.exit(0)
 
     def download(self, file_id, output_path):
+        if isinstance(file_id, str):
+            file_id = file_id.encode("ascii")
+
         file_list = self.prive_connection.get_files(self.user)
         if file_list[b"errorCode"] != b"successful":
             print("Error getting file list")
@@ -320,43 +326,63 @@ class PRVConnect:
         self.prive_connection.close()
         sys.exit(0)
 
-    @staticmethod
-    def progress_function(current_value, max_value, function):
+    def progress_function(self, current_value, max_value, function):
+        if not self.progress_start_time:
+            self.progress_start_time = time.time()
         progressPercentage = float(current_value) / float(max_value)
         characters = 50
         blockCharacters = chr(219)*int(round(progressPercentage*characters))
         dashCharacters = "-"*(50-int(round(progressPercentage*characters)))
+
+        speed = (current_value / float(10**6)) / (time.time() - self.progress_start_time + 0.0001)
+
         if function == 0:
-            sys.stdout.write("Uploading:   {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
-                                                                                      dashCharacters,
-                                                                                      progressPercentage * 100,
-                                                                                      current_value / 1000,
-                                                                                      max_value / 1000))
+            sys.stdout.write("Uploading:   {}{} {:.2f}% {:.2f}KB / {:.2f}KB ({:.2f} MBps)\r".format(
+                blockCharacters,
+                dashCharacters,
+                progressPercentage * 100,
+                current_value / 1000,
+                max_value / 1000,
+                speed
+            ))
             if progressPercentage >= 1:
+                self.progress_start_time = None
                 sys.stdout.write("\n")
         elif function == 1:
-            sys.stdout.write("Encrypting:  {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
-                                                                                      dashCharacters,
-                                                                                      progressPercentage * 100,
-                                                                                      current_value / 1000,
-                                                                                      max_value / 1000))
+            sys.stdout.write("Encrypting:   {}{} {:.2f}% {:.2f}KB / {:.2f}KB ({:.2f} MBps)\r".format(
+                blockCharacters,
+                dashCharacters,
+                progressPercentage * 100,
+                current_value / 1000,
+                max_value / 1000,
+                speed
+            ))
             if progressPercentage >= 1:
+                self.progress_start_time = None
                 sys.stdout.write("\n")
         elif function == 2:
-            sys.stdout.write("Downloading: {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
-                                                                                      dashCharacters,
-                                                                                      progressPercentage * 100,
-                                                                                      current_value / 1000,
-                                                                                      max_value / 1000))
+            sys.stdout.write("Downloading:   {}{} {:.2f}% {:.2f}KB / {:.2f}KB ({:.2f} MBps)\r".format(
+                blockCharacters,
+                dashCharacters,
+                progressPercentage * 100,
+                current_value / 1000,
+                max_value / 1000,
+                speed
+            ))
             if progressPercentage >= 1:
+                self.progress_start_time = None
                 sys.stdout.write("\n")
         elif function == 3:
-            sys.stdout.write("Decrypting:  {}{} {:.2f}% {:.2f}KB / {:.2f}KB\r".format(blockCharacters,
-                                                                                      dashCharacters,
-                                                                                      progressPercentage * 100,
-                                                                                      current_value / 1000,
-                                                                                      max_value / 1000))
+            sys.stdout.write("Decrypting:   {}{} {:.2f}% {:.2f}KB / {:.2f}KB ({:.2f} MBps)\r".format(
+                blockCharacters,
+                dashCharacters,
+                progressPercentage * 100,
+                current_value / 1000,
+                max_value / 1000,
+                speed
+            ))
             if progressPercentage >= 1:
+                self.progress_start_time = None
                 sys.stdout.write("\n")
 
 

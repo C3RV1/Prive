@@ -1,0 +1,12 @@
+# Specify filepatterns you want git to ignore.
+*.bat
+*.log
+PriveDatabase/
+*.pcf
+*.pk
+*.mp4
+*.txt
+venv/
+.idea/
+*__pycache__
+*.pyc
